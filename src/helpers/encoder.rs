@@ -11,12 +11,10 @@ pub fn encode_message(message: &str, output_file: &str) -> Result<(), std::io::E
     // Encode to Base64
     let encoded = general_purpose::STANDARD.encode(message_bytes);
 
-    println!("[ENCODER]: Message encoded");
-
+    println!("[ENCODER]: Saving message to file");
     // Save encoded message to a file
     let mut file = File::create(output_file)?;
     file.write_all(encoded.as_bytes())?;
 
-    println!("[ENCODER]: Encoded message written to file: {}", output_file);
     Ok(())
 }

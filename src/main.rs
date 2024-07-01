@@ -15,7 +15,10 @@ fn print_usage() {
 
 fn encode_message(message: &str, output_file: &str) {
     match helpers::encoder::encode_message(message, output_file) {
-        Ok(_) => println!("Message encoded and saved successfully."),
+        Ok(_) => {
+            println!("[ENCODER]: Encoded message written to file: {}", output_file);
+            modulate_file(output_file, "src/files/modulated.wav");
+        },
         Err(e) => eprintln!("Error encoding message: {}", e),
     }
 }
