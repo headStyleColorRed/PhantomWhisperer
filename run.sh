@@ -1,1 +1,1 @@
-cargo run -- "{ 'name': 'John Doe', 'age': 30 }"
+cargo run -- encode "{ 'name': 'John Doe', 'age': 30 }" test.md
