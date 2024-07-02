@@ -1,14 +1,13 @@
 use std::env;
 use std::process;
-// Import helper functions
 mod helpers;
-
 
 fn print_usage() {
     println!("Usage: phantom-pulse <command> [options]");
     println!("Commands:");
-    println!("  encode <message>    Encode a message");
-    println!("  modulate <file>     Modulate an encoded file");
+    println!("  encode <message> <output_file>    Encode a message");
+    println!("  modulate <input_file> <output_file>  Modulate an encoded file");
+    println!("  decode <input_file> <output_file>    Decode a modulated file");
     println!("  transmit <file>     Transmit a modulated file");
     println!("  help                Show this help message");
 }
@@ -28,6 +27,14 @@ fn modulate_file(input_file: &str, output_file: &str) {
     match helpers::modulator::modulate_file(input_file, output_file) {
         Ok(_) => println!("Modulation completed successfully. File created in path '{}'", output_file),
         Err(e) => eprintln!("Error during modulation: {}", e),
+    }
+}
+
+fn decode_file(input_file: &str, output_file: &str) {
+    println!("Decoding file: {} to {}", input_file, output_file);
+    match helpers::decoder::decode_file(input_file, output_file) {
+        Ok(_) => println!("Decoding completed successfully. File created in path '{}'", output_file),
+        Err(e) => eprintln!("Error during decoding: {}", e),
     }
 }
 
@@ -54,11 +61,18 @@ fn main() {
             encode_message(&args[2], &args[3]);
         }
         "modulate" => {
-            if args.len() < 3 {
-                println!("Error: No file provided for modulation.");
+            if args.len() < 4 {
+                println!("Error: Modulation requires input and output file names.");
                 process::exit(1);
             }
             modulate_file(&args[2], &args[3]);
+        }
+        "decode" => {
+            if args.len() < 4 {
+                println!("Error: Decoding requires input and output file names.");
+                process::exit(1);
+            }
+            decode_file(&args[2], &args[3]);
         }
         "transmit" => {
             if args.len() < 3 {
