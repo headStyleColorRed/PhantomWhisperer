@@ -2,7 +2,7 @@
 
 Phantom Pulse is a Rust-based CLI application for encoding messages, modulating them into audio signals, and preparing them for radio transmission.
 
-![Phantom Pulse Logo](Resources/icon.jpeg)
+![Phantom Pulse Logo](resources/simple_wave.jpeg)
 
 ## Features
 

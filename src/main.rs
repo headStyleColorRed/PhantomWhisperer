@@ -2,45 +2,16 @@ use std::env;
 use std::process;
 mod helpers;
 
-fn print_usage() {
-    println!("Usage: phantom-pulse <command> [options]");
-    println!("Commands:");
-    println!("  encode <message> <output_file>    Encode a message");
-    println!("  modulate <input_file> <output_file>  Modulate an encoded file");
-    println!("  decode <input_file> <output_file>    Decode a modulated file");
-    println!("  transmit <file>     Transmit a modulated file");
-    println!("  help                Show this help message");
-}
-
 fn encode_message(message: &str, output_file: &str) {
-    match helpers::encoder::encode_message(message, output_file) {
-        Ok(_) => {
-            println!("[ENCODER]: Encoded message written to file: {}", output_file);
-            modulate_file(output_file, "src/files/modulated.wav");
-        },
-        Err(e) => eprintln!("Error encoding message: {}", e),
-    }
+    helpers::processes::encode_message(message, output_file)
 }
 
 fn modulate_file(input_file: &str, output_file: &str) {
-    println!("Modulating file: {} to {}", input_file, output_file);
-    match helpers::modulator::modulate_file(input_file, output_file) {
-        Ok(_) => println!("Modulation completed successfully. File created in path '{}'", output_file),
-        Err(e) => eprintln!("Error during modulation: {}", e),
-    }
+    helpers::processes::modulate_file(input_file, output_file)
 }
 
 fn decode_file(input_file: &str, output_file: &str) {
-    println!("Decoding file: {} to {}", input_file, output_file);
-    match helpers::decoder::decode_file(input_file, output_file) {
-        Ok(_) => println!("Decoding completed successfully. File created in path '{}'", output_file),
-        Err(e) => eprintln!("Error during decoding: {}", e),
-    }
-}
-
-fn transmit_file(file: &str) {
-    println!("Transmitting file: {}", file);
-    // TODO: Implement actual transmission logic
+    helpers::processes::decode_file(input_file, output_file)
 }
 
 fn main() {
@@ -48,7 +19,6 @@ fn main() {
 
     if args.len() < 2 {
         println!("Error: No command provided.");
-        print_usage();
         process::exit(1);
     }
 
@@ -79,14 +49,10 @@ fn main() {
                 println!("Error: No file provided for transmission.");
                 process::exit(1);
             }
-            transmit_file(&args[2]);
-        }
-        "help" => {
-            print_usage();
+            // transmit_file(&args[2]);
         }
         _ => {
             println!("Error: Unknown command '{}'", args[1]);
-            print_usage();
             process::exit(1);
         }
     }
