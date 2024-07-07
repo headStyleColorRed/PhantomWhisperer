@@ -1,13 +1,15 @@
 # Phantom Pulse
 
-Phantom Pulse is a Rust-based CLI application for encoding messages, modulating them into audio signals, and preparing them for radio transmission.
+Phantom Pulse is a Rust-based web application for encoding text messages into WAV audio files using frequency-shift keying (FSK) and decoding them back to text, enabling data transmission through audio channels.
 
 ![Phantom Pulse Logo](resources/simple_wave.jpeg)
 
 ## Features
 
-- String encoding to Wav
-- Wav de-encoding to String
+- Encode text messages into WAV audio files
+- Decode WAV audio files back to text messages
+- Web-based interface for easy interaction
+- RESTful API endpoints for encoding and decoding
 
 ## Installation
 
@@ -19,45 +21,91 @@ Phantom Pulse is a Rust-based CLI application for encoding messages, modulating 
    cd phantom-pulse
    ```
 
-3. Build the project:
+3. Build and run the project:
    ```
    cargo run
    ```
 
+The server will start running on `http://localhost:3030`.
+
 ## Usage
 
-Phantom Pulse provides several commands for encoding, modulating, and decoding messages:
+Phantom Pulse provides a web interface and API endpoints for encoding and decoding messages:
+
+### Web Interface
+
+Access the web interface by opening `http://localhost:3030` in your web browser. The interface allows you to:
+
+- Enter text messages to encode into WAV files
+- Upload WAV files to decode back into text messages
+
+### API Endpoints
 
 1. Encode a message:
    ```
-   cargo run -- encode "Your secret message" encoded_message.txt
+   POST /encode
+   Content-Type: application/json
+
+   {
+     "message": "Your secret message"
+   }
+   ```
+   This returns a WAV file containing the encoded message.
+
+2. Decode a WAV file:
+   ```
+   POST /decode
+   Content-Type: multipart/form-data
+
+   file: [WAV file to decode]
+   ```
+   This returns a JSON object containing the decoded message:
+   ```json
+   {
+     "decoded_message": "Your secret message"
+   }
    ```
 
-2. Modulate an encoded file:
+3. Health check:
    ```
-   cargo run -- modulate encoded_message.txt modulated_signal.wav
+   GET /health
    ```
-
-3. Decode a modulated file:
-   ```
-   cargo run -- decode modulated_signal.wav decoded_message.json
-   ```
-
-4. View help:
-   ```
-   cargo run -- help
-   ```
+   Returns "Server is up and running" if the server is operational.
 
 ## Technical Details
 
-- Encoding: Base64
-- Modulation: Binary FSK (1000 Hz for 0, 2000 Hz for 1)
+- Backend: Rust with Warp web framework
+- Encoding: Text to binary, then to audio frequencies
+- Modulation: Binary FSK (Frequency-Shift Keying)
+  - 1000 Hz represents binary 0
+  - 2000 Hz represents binary 1
 - Audio: 44.1 kHz sample rate, 16-bit depth
 - Decoding: Goertzel algorithm for frequency detection
 
+### How It Works
+
+1. Encoding:
+   - The input text is converted to binary.
+   - Each binary digit is represented by a specific frequency (1000 Hz or 2000 Hz).
+   - These frequencies are combined to create a WAV audio file.
+
+2. Decoding:
+   - The WAV file is analyzed using the Goertzel algorithm.
+   - The algorithm detects which frequency is present for each time segment.
+   - Based on the detected frequencies, the binary data is reconstructed.
+   - The binary data is then converted back to text.
+
+## Project Structure
+
+- `/src`: Contains the Rust source code
+  - `main.rs`: Server setup and route definitions
+  - `/routes`: Contains handler functions for API endpoints
+  - `/helpers`: Utility functions for encoding, decoding, and error handling
+- `/web`: Contains the front-end files (HTML, CSS, JavaScript)
+
 ## Legal and Safety
 
-**Important:** This software is designed for educational purposes only. Transmitting radio signals without proper authorization may be illegal in your jurisdiction. Always ensure you comply with local laws and regulations before attempting any radio transmissions.
+**Important:** This software is designed for educational purposes only. Be aware of the legal implications of transmitting encoded messages, especially over radio frequencies. Always ensure you comply with local laws and regulations.
 
 ## Contributing
 
