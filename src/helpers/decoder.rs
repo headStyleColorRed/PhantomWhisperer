@@ -1,7 +1,5 @@
 use hound;
 use std::f32::consts::PI;
-use std::fs::File;
-use std::io::Write;
 use base64::{engine::general_purpose, Engine as _};
 
 const SAMPLE_RATE: f32 = 44100.0;
@@ -23,7 +21,7 @@ fn goertzel(samples: &[i16], target_frequency: f32) -> f32 {
     (s1 * s1 + s2 * s2 - coeff * s1 * s2).sqrt()
 }
 
-pub fn decode_file(input_file: &str, output_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn decode_file(input_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     let mut reader = hound::WavReader::open(input_file)?;
     let samples: Vec<i16> = reader.samples().map(|s| s.unwrap()).collect();
 
@@ -40,11 +38,7 @@ pub fn decode_file(input_file: &str, output_file: &str) -> Result<(), Box<dyn st
 
     let decoded = String::from_utf8(bytes)?;
     let json_message = general_purpose::STANDARD.decode(decoded)?;
-    let json_string = String::from_utf8(json_message)?;
-
-    let mut file = File::create(output_file)?;
-    file.write_all(json_string.as_bytes())?;
-
-    println!("Decoded message saved to: {}", output_file);
-    Ok(())
+    let json_string: String = String::from_utf8(json_message)?;
+    println!("[DECODER]: File decoded successfully");
+    Ok(json_string)
 }

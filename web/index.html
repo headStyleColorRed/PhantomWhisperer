@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phantom Pulse</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin-top: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        .loading {
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .wav_download {
+            display: block;
+            margin-top: 10px;
+        }
+
+        .mode-selector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .mode-button {
+            margin: 0 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .mode-button.active {
+            background-color: #2980b9;
+        }
+
+        .mode-button:not(.active) {
+            background-color: #95a5a6;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="container">
+        <h1>Phantom Pulse</h1>
+
+        <div class="mode-selector">
+            <button @click="changeOption('encode')" :class="['mode-button', { active: mode === 'encode' }]">
+                Encode
+            </button>
+            <button @click="changeOption('decode')" :class="['mode-button', { active: mode === 'decode' }]">
+                Decode
+            </button>
+        </div>
+
+        <div v-if="mode === 'encode'">
+            <input type="text" v-model="message" placeholder="Enter your message">
+            <button @click="encodeAndModulate" :disabled="isLoading">Encode and Modulate</button>
+        </div>
+
+        <div v-if="mode === 'decode'">
+            <input type="file" @change="onFileChange" accept=".wav">
+            <button @click="decodeWav" :disabled="isLoading || !selectedFile">Decode WAV</button>
+        </div>
+
+        <div v-if="isLoading" class="loading">Processing...</div>
+        <div v-if="error" class="error">{{ error }}</div>
+
+        <div v-if="wavUrl && mode === 'encode'">
+            <p>Your modulated message is ready:</p>
+            <audio :src="wavUrl" controls></audio>
+        </div>
+
+        <div v-if="decodedText">
+            <p>Decoded text:</p>
+            <p>{{ decodedText }}</p>
+        </div>
+    </div>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                message: '',
+                wavUrl: null,
+                error: null,
+                isLoading: false,
+                mode: 'encode',
+                selectedFile: null,
+                decodedText: ''
+            },
+            methods: {
+                async encodeAndModulate() {
+                    if (!this.message) {
+                        this.error = "Please enter a message";
+                        return;
+                    }
+                    this.error = null;
+                    this.wavUrl = null;
+                    this.isLoading = true;
+
+                    try {
+                        const response = await fetch('http://localhost:3030/encode', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ message: this.message }),
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || 'Server responded with an error');
+                        }
+
+                        const blob = await response.blob();
+                        this.wavUrl = URL.createObjectURL(blob);
+                    } catch (error) {
+                        this.error = "An error occurred: " + error.message;
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                onFileChange(event) {
+                    this.selectedFile = event.target.files[0];
+                },
+                async decodeWav() {
+                    if (!this.selectedFile) {
+                        this.error = "Please select a WAV file";
+                        return;
+                    }
+                    this.error = null;
+                    this.decodedText = '';
+                    this.isLoading = true;
+
+                    console.log("entra");
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', this.selectedFile);
+
+                        const response = await fetch('http://localhost:3030/decode', {
+                            method: 'POST',
+                            body: formData,
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || 'Server responded with an error');
+                        }
+
+                        const result = await response.json();
+                        console.log(result);
+                        this.decodedText = result.decoded_message;
+                    } catch (error) {
+                        this.error = "An error occurred: " + error.message;
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                changeOption(option) {
+                    this.mode = option;
+                    this.resetState();
+                },
+                resetState() {
+                    console.log("funciosa?");
+                    this.message = '';
+                    this.wavUrl = null;
+                    this.error = null;
+                    this.isLoading = false;
+                    this.selectedFile = null;
+                    this.decodedText = '';
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

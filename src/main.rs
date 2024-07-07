@@ -59,11 +59,11 @@ async fn main() {
 
 async fn modulate_text(data: RequestData) -> Result<impl warp::Reply, warp::Rejection> {
     // Encode the message
-    let encoded_path = helpers::encoder::encode_message(&data.message, "encoded_message.txt")
+    let encoded_path = helpers::encoder::encode_message(&data.message, "src/files/encoded_message.txt")
         .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
 
     // Modulate the file
-    let modulated_file = "modulated_message.wav";
+    let modulated_file = "src/files/modulated_message.wav";
     helpers::modulator::modulate_file(&encoded_path, modulated_file)
         .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
 
@@ -104,17 +104,11 @@ async fn decode_wav(mut form: warp::multipart::FormData) -> Result<impl warp::Re
         .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
 
     // Decode the file
-    let temp_output_file = "temp_decoded_output.txt";
-    helpers::decoder::decode_file(temp_wav_file, temp_output_file)
-        .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
-
-    // Read the decoded message
-    let decoded_message = tokio::fs::read_to_string(temp_output_file).await
+    let decoded_message: String = helpers::decoder::decode_file(temp_wav_file)
         .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
 
     // Clean up temporary files
     tokio::fs::remove_file(temp_wav_file).await.ok();
-    tokio::fs::remove_file(temp_output_file).await.ok();
 
     // Return the decoded message as JSON
     let response = DecodedResponse { decoded_message };
