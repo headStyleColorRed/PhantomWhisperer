@@ -1,59 +1,79 @@
-use std::env;
-use std::process;
+use std::{error::Error, fmt};
+
+use warp::Filter;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
+use serde::{Deserialize, Serialize};
 mod helpers;
 
-fn encode_message(message: &str, output_file: &str) {
-    helpers::processes::encode_message(message, output_file)
+#[derive(Deserialize, Serialize)]
+struct RequestData {
+    message: String,
 }
 
-fn modulate_file(input_file: &str, output_file: &str) {
-    helpers::processes::modulate_file(input_file, output_file)
+#[tokio::main]
+async fn main() {
+    // Define the route to serve the file with JSON data
+    let file_route = warp::path("encode")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(modulate_text);
+
+    // Define the route for the root path
+    let root_route = warp::path::end().map(|| "Server is up and running");
+
+    // Combine the routes
+    let routes = warp::get().and(root_route).or(file_route);
+
+        // Add CORS support
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_headers(vec!["Content-Type"])
+        .allow_methods(vec!["POST", "GET"]);
+
+    // Apply CORS to our routes
+    let routes = routes.with(cors);
+
+    // Start the warp server on port 3030
+    println!("Starting server on http://localhost:3030");
+
+    // Start the warp server on port 3030
+    warp::serve(routes)
+        .run(([127, 0, 0, 1], 3030))
+        .await;
 }
 
-fn decode_file(input_file: &str, output_file: &str) {
-    helpers::processes::decode_file(input_file, output_file)
+async fn modulate_text(data: RequestData) -> Result<impl warp::Reply, warp::Rejection> {
+    // Encode the message
+    let encoded_path = helpers::encoder::encode_message(&data.message,  "encoded_message.txt")
+        .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
+
+    // Modulate the file
+    let modulated_file = "modulated_message.wav";
+    helpers::modulator::modulate_file(&encoded_path, modulated_file)
+        .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
+
+    // Read the modulated file contents
+    let mut file = File::open(modulated_file).await.map_err(|_| warp::reject::not_found())?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).await.map_err(|_| warp::reject::not_found())?;
+
+    // Return the file contents as a response
+    Ok(warp::http::Response::builder()
+        .header("Content-Type", "audio/wav")
+        .body(buffer))
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+// Custom error type for error handling
+#[derive(Debug)]
+struct CustomError(String);
 
-    if args.len() < 2 {
-        println!("Error: No command provided.");
-        process::exit(1);
+impl Error for CustomError {}
+
+impl fmt::Display for CustomError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Custom error: {}", self.0)
     }
-
-    match args[1].as_str() {
-        "encode" => {
-            if args.len() < 4 {
-                println!("Error: Encoding requires a message and an output file name.");
-                process::exit(1);
-            }
-            encode_message(&args[2], &args[3]);
-        }
-        "modulate" => {
-            if args.len() < 4 {
-                println!("Error: Modulation requires input and output file names.");
-                process::exit(1);
-            }
-            modulate_file(&args[2], &args[3]);
-        }
-        "decode" => {
-            if args.len() < 4 {
-                println!("Error: Decoding requires input and output file names.");
-                process::exit(1);
-            }
-            decode_file(&args[2], &args[3]);
-        }
-        "transmit" => {
-            if args.len() < 3 {
-                println!("Error: No file provided for transmission.");
-                process::exit(1);
-            }
-            // transmit_file(&args[2]);
-        }
-        _ => {
-            println!("Error: Unknown command '{}'", args[1]);
-            process::exit(1);
-        }
-    }
 }
+
+impl warp::reject::Reject for CustomError {}

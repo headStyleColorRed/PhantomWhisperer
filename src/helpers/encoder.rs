@@ -1,8 +1,9 @@
 use base64::{engine::general_purpose, Engine as _};
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 
-pub fn encode_message(message: &str, output_file: &str) -> Result<(), std::io::Error> {
+pub fn encode_message(message: &str, output_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     println!("[ENCODER]: Encoding message");
 
     // Convert message to bytes
@@ -16,5 +17,7 @@ pub fn encode_message(message: &str, output_file: &str) -> Result<(), std::io::E
     let mut file = File::create(output_file)?;
     file.write_all(encoded.as_bytes())?;
 
-    Ok(())
+    let file_path = Path::new(output_file).canonicalize()?.to_str().ok_or("Invalid file path")?.to_string();
+
+    Ok(file_path)
 }
