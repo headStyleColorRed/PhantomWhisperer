@@ -46,7 +46,7 @@ async fn main() {
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["Content-Type"])
-        .allow_methods(vec!["POST", "GET"]);
+        .allow_methods(vec!["POST"]);
 
     // Apply CORS to our routes
     let routes = routes.with(cors);
