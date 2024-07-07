@@ -1,10 +1,10 @@
-use std::{error::Error, fmt};
 use bytes::Buf;
 use warp::Filter;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use serde::{Deserialize, Serialize};
 use futures::TryStreamExt;
+use helpers::errors::CustomError;
 mod helpers;
 
 #[derive(Deserialize, Serialize)]
@@ -19,19 +19,19 @@ struct DecodedResponse {
 
 #[tokio::main]
 async fn main() {
-    // Define the route to serve the file with JSON data
+    // Route that encodes a message and modulates it into a WAV file
     let encode_route = warp::path("encode")
         .and(warp::post())
         .and(warp::body::json())
         .and_then(modulate_text);
 
-    // Define the route for decoding WAV files
+    // Route that decodes a WAV file and returns the decoded message
     let decode_route = warp::path("decode")
         .and(warp::post())
         .and(warp::multipart::form().max_length(5_000_000))
         .and_then(decode_wav);
 
-    // Define the route for the root path
+    // Route for the root path
     let root_route = warp::path::end().map(|| "Server is up and running");
 
     // Combine the routes
@@ -39,7 +39,7 @@ async fn main() {
         .or(encode_route)
         .or(decode_route);
 
-    // Add CORS support
+    // CORS middleware, TODO: Remove this in production
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["Content-Type"])
@@ -48,7 +48,7 @@ async fn main() {
     // Apply CORS to our routes
     let routes = routes.with(cors);
 
-    // Start the warp server on port 3030
+    // Notify the user that the server is running
     println!("Starting server on http://localhost:3030");
 
     // Start the warp server on port 3030
@@ -114,17 +114,3 @@ async fn decode_wav(mut form: warp::multipart::FormData) -> Result<impl warp::Re
     let response = DecodedResponse { decoded_message };
     Ok(warp::reply::json(&response))
 }
-
-// Custom error type for error handling
-#[derive(Debug)]
-struct CustomError(String);
-
-impl Error for CustomError {}
-
-impl fmt::Display for CustomError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Custom error: {}", self.0)
-    }
-}
-
-impl warp::reject::Reject for CustomError {}
