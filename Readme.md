@@ -42,7 +42,7 @@ Access the web interface by opening `http://localhost:3030` in your web browser.
 ### API Endpoints
 
 1. Encode a message:
-   ```
+   ```js
    POST /encode
    Content-Type: application/json
 
@@ -53,7 +53,7 @@ Access the web interface by opening `http://localhost:3030` in your web browser.
    This returns a WAV file containing the encoded message.
 
 2. Decode a WAV file:
-   ```
+   ```js
    POST /decode
    Content-Type: multipart/form-data
 
