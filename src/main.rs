@@ -52,10 +52,10 @@ async fn main() {
     let routes = routes.with(cors);
 
     // Notify the user that the server is running
-    println!("Starting server on http://localhost:3030");
+    println!("Starting server on http://0.0.0.0:3030");
 
     // Start the warp server on port 3030
     warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030))
+        .run(([0, 0, 0, 0], 3030))
         .await;
 }
