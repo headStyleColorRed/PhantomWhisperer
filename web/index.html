@@ -185,8 +185,6 @@
                     this.decodedText = '';
                     this.isLoading = true;
 
-                    console.log("entra");
-
                     try {
                         const formData = new FormData();
                         formData.append('file', this.selectedFile);
@@ -215,7 +213,6 @@
                     this.resetState();
                 },
                 resetState() {
-                    console.log("funciosa?");
                     this.message = '';
                     this.wavUrl = null;
                     this.error = null;
