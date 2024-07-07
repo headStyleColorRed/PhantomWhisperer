@@ -35,6 +35,10 @@ Phantom Pulse provides a web interface and API endpoints for encoding and decodi
 
 ### Web Interface
 
+<p align="center">
+  <img src="resources/website.png" alt="Phantom Pulse Logo" width="70%" height="auto" style="display: block; margin: auto;">
+</p>
+
 Access the web interface by opening `http://localhost:3030` in your web browser. The interface allows you to:
 
 - Enter text messages to encode into WAV files
