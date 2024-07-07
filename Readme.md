@@ -1,4 +1,4 @@
-# Phantom Pulse <img src="resources/simple_wave.jpeg" alt="Phantom Pulse Logo" width="60%" height="auto" style="display: block; margin: auto;">
+# Phantom Pulse
 Phantom Pulse is a Rust-based web application for encoding text messages into WAV audio files using frequency-shift keying (FSK) and decoding them back to text, enabling data transmission through audio channels.
 
 <p align="center">
