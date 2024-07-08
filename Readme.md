@@ -14,6 +14,10 @@ Phantom Pulse is a Rust-based web application for encoding text messages into WA
 
 ## Installation
 
+You can install and run Phantom Pulse either directly on your system or using Docker.
+
+### Option 1: Direct Installation
+
 1. Ensure you have Rust and Cargo installed on your system. If not, install them from [https://www.rust-lang.org/](https://www.rust-lang.org/).
 
 2. Clone the repository:
@@ -27,7 +31,22 @@ Phantom Pulse is a Rust-based web application for encoding text messages into WA
    cargo run
    ```
 
-The server will start running on `http://localhost:3030`.
+### Option 2: Docker Installation
+
+1. Ensure you have Docker and Docker Compose installed on your system. If not, install them from [https://docs.docker.com/get-docker/](https://docs.docker.com/get-docker/).
+
+2. Clone the repository:
+   ```
+   git clone https://github.com/headstylecolorred/phantom-pulse.git
+   cd phantom-pulse
+   ```
+
+3. Build and run the Docker container:
+   ```
+   docker-compose up --build
+   ```
+
+For both options, the server will start running on `http://localhost:3030`.
 
 ## Usage
 
