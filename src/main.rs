@@ -3,6 +3,9 @@ use std::path::Path;
 mod helpers;
 mod routes;
 
+#[cfg(test)]
+mod tests;
+
 use routes::encoder::modulate_text;
 use routes::decoder::decode_wav;
 
