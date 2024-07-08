@@ -61,16 +61,12 @@ fn test_very_long_message() {
 
 #[test]
 fn test_encode_error() {
-    // This test depends on how your encode_message function handles errors
-    // Adjust as necessary based on your implementation
     let result = encoder::encode_message("test", "/nonexistent/path/file.txt");
     assert!(result.is_err());
 }
 
 #[test]
 fn test_decode_error() {
-    // This test depends on how your decode_file function handles errors
-    // Adjust as necessary based on your implementation
     let result = decoder::decode_file("/nonexistent/path/file.wav");
     assert!(result.is_err());
 }
