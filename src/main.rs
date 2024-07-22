@@ -8,6 +8,7 @@ mod tests;
 
 use routes::encoder::modulate_text;
 use routes::decoder::decode_wav;
+use helpers::errors::handle_rejection;
 
 #[tokio::main]
 async fn main() {
@@ -33,7 +34,8 @@ async fn main() {
     let decode_route = warp::path("decode")
         .and(warp::post())
         .and(warp::multipart::form().max_length(5_000_000))
-        .and_then(decode_wav);
+        .and_then(decode_wav)
+        .recover(handle_rejection);
 
     // Route to confirm the server is up and running
     let health_route = warp::path("health").map(|| "Server is up and running");

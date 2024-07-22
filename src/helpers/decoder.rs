@@ -63,19 +63,20 @@ enum DecoderState {
 }
 
 pub fn decode_file(input_file: &str) -> Result<String, Box<dyn std::error::Error>> {
+    println!("[DECODER] Starting to decode file: {}", input_file);
 
     // Open the WAV file and read all samples into a vector
     let mut reader = hound::WavReader::open(input_file)?;
     let samples: Vec<i16> = reader.samples().map(|s| s.unwrap()).collect();
+    println!("[DECODER] Read {} samples from file.", samples.len());
 
     let mut decoded_bits = Vec::new();  // Store the final decoded bits
     let mut current_position = 0;  // Keep track of our position in the samples
-    let mut state = DecoderState::SearchingPreamble;  // Start in the preamble search state, helps us keep track of where we are in the decoding process
+    let mut state = DecoderState::SearchingPreamble;  // Start in the preamble search state
     let mut bit_buffer = VecDeque::new();  // Sliding window of recent bits
 
     // Main decoding loop
     while current_position < samples.len() {
-        println!("Current position: {}, State: {:?}", current_position, state);
 
         // Detect the current bit if we have enough samples left
         if current_position + SAMPLES_PER_BIT as usize <= samples.len() {
@@ -116,6 +117,12 @@ pub fn decode_file(input_file: &str) -> Result<String, Box<dyn std::error::Error
         current_position += SAMPLES_PER_BIT as usize;
     }
 
+    // If decoded_bits is empty, the file was not encoded with our protocol
+    println!("[DECODER] Decoded bits length: {}", decoded_bits.len());
+    if decoded_bits.is_empty() {
+        return Err("File does not contain encoded data".into());
+    }
+
     // Print the decoded bits for debugging
     print_bits(&decoded_bits);
 
@@ -124,14 +131,20 @@ pub fn decode_file(input_file: &str) -> Result<String, Box<dyn std::error::Error
         .chunks(8)
         .map(|chunk| chunk.iter().fold(0u8, |acc, &b| (acc << 1) | b as u8))
         .collect();
+    println!("[DECODER] Converted bits to bytes: {:?}", bytes);
 
     // Convert bytes to a string (which is Base64 encoded)
     let decoded = String::from_utf8(bytes)?;
+    println!("[DECODER] Converted bytes to Base64 string: {}", decoded);
+
     // Decode the Base64 string
     let json_message = general_purpose::STANDARD.decode(decoded)?;
+    println!("[DECODER] Decoded Base64 string to JSON message.");
+
     // Convert the decoded bytes to a JSON string
     let json_string = String::from_utf8(json_message)?;
+    println!("[DECODER] JSON message successfully converted to string.");
 
-    println!("[DECODER]: File decoded successfully");
+    println!("[DECODER] File decoded successfully");
     Ok(json_string)
 }
