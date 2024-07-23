@@ -61,6 +61,6 @@ async fn main() {
 
     // Start the warp server on port 3030
     warp::serve(routes)
-        .run(([0, 0, 0, 0], 3030))
+        .run(([127, 0, 0, 1], 3030)) // Should be 0.0.0.0 for docker
         .await;
 }

@@ -3,7 +3,7 @@ use crate::helpers::{encoder, decoder, modulator};
 use helpers::constants::{POSTAMBLE, PREAMBLE};
 use tempfile::NamedTempFile;
 
-// H E L P E R    F UN C T I O N S
+// H E L P E R    F U N C T I O N S
 //
 // The encode_decode function takes a string input, encodes it, modulates it, and then decodes it.
 fn encode_decode(input: &str) -> Result<String, Box<dyn std::error::Error>> {
