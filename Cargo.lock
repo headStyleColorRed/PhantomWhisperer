@@ -592,6 +592,7 @@ dependencies = [
  "bytes",
  "futures",
  "hound",
+ "rand",
  "serde",
  "serde_json",
  "tempfile",
