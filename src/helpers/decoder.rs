@@ -1,6 +1,5 @@
 use hound;
 use std::f32::consts::PI;
-use base64::{engine::general_purpose, Engine as _};
 use super::constants::*;
 use super::debuger::*;
 use std::collections::VecDeque;
@@ -9,7 +8,6 @@ const SAMPLE_RATE: f32 = 44100.0;
 const SAMPLES_PER_BIT: u32 = 100;
 const FREQUENCY_0: f32 = 1000.0;
 const FREQUENCY_1: f32 = 2000.0;
-const SYNC_THRESHOLD: f32 = 0.85;
 const PREAMBLE_MATCH_THRESHOLD: f32 = 0.9;
 
 #[derive(Debug, PartialEq)]
