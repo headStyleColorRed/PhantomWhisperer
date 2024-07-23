@@ -88,13 +88,6 @@ fn test_size_encoding() {
     assert_eq!(input, result, "Size encoding/decoding failed");
 }
 
-// #[test]
-// fn test_large_message() {
-//     let input = "a".repeat(1_000);  // 1 thousand character string
-//     let result = encode_decode(&input).unwrap();
-//     assert_eq!(input, result, "Large message encoding/decoding failed");
-// }
-
 #[test]
 fn test_noise_resistance() {
     let input = "Test message for noise resistance";
