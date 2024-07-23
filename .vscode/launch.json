@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'phantom_whisperer'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=phantom_whisperer",
+                    "--package=phantom_whisperer"
+                ],
+                "filter": {
+                    "name": "phantom_whisperer",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+    ]
+}
