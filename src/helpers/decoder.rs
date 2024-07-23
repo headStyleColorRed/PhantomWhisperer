@@ -5,49 +5,52 @@ use super::constants::*;
 use super::debuger::*;
 use std::collections::VecDeque;
 
-// Constants for audio processing
-const SAMPLE_RATE: f32 = 44100.0;  // Standard CD-quality audio sample rate
-const SAMPLES_PER_BIT: u32 = 100;  // Number of samples used to represent each bit
-const FREQUENCY_0: f32 = 1000.0;  // Frequency used to represent bit 0
-const FREQUENCY_1: f32 = 2000.0;  // Frequency used to represent bit 1
+const SAMPLE_RATE: f32 = 44100.0;
+const SAMPLES_PER_BIT: u32 = 100;
+const FREQUENCY_0: f32 = 1000.0;
+const FREQUENCY_1: f32 = 2000.0;
+const SYNC_THRESHOLD: f32 = 0.85;
+const PREAMBLE_MATCH_THRESHOLD: f32 = 0.9;
 
-/// Implements the Goertzel algorithm to detect the presence of a specific frequency in a signal
-/// and returns a f32 value representing the magnitude of the target frequency in the sample
-fn goertzel(samples: &[i16], target_frequency: f32) -> f32 {
-    // Calculate the normalized frequency
-    let omega = 2.0 * PI * target_frequency / SAMPLE_RATE;
-    // Precompute the coefficient for the algorithm
-    let coeff = 2.0 * omega.cos();
-    // Initialize the algorithm's state variables
-    let (mut s1, mut s2) = (0.0, 0.0);
-
-    // Process each sample through the algorithm
-    for &sample in samples {
-        let s0 = sample as f32 + coeff * s1 - s2;
-        s2 = s1;
-        s1 = s0;
-    }
-
-    // Compute and return the magnitude of the frequency component
-    (s1 * s1 + s2 * s2 - coeff * s1 * s2).sqrt()
+#[derive(Debug, PartialEq)]
+enum DecoderState {
+    SearchingPreamble,
+    ReadingSize,
+    DecodingData,
+    SearchingPostamble
 }
 
-/// Detects whether a chunk of samples represents a '0' bit or a '1' bit
-/// by analizyin which frequency (FREQUENCY_0 or FREQUENCY_1) is more prevalent in the given chunk of samples.
+fn correlate(samples: &[i16], frequency: f32) -> f32 {
+    let omega = 2.0 * PI * frequency / SAMPLE_RATE;
+    samples.iter().enumerate().fold(0.0, |acc, (i, &sample)| {
+        acc + (sample as f32) * (omega * i as f32).sin()
+    }).abs() / samples.len() as f32
+}
+
 fn detect_bit(chunk: &[i16]) -> bool {
-    let power_0 = goertzel(chunk, FREQUENCY_0);
-    let power_1 = goertzel(chunk, FREQUENCY_1);
-    power_1 > power_0  // If power of FREQUENCY_1 is greater, it's a '1' bit
+    let power_0 = correlate(chunk, FREQUENCY_0);
+    let power_1 = correlate(chunk, FREQUENCY_1);
+    power_1 > power_0
 }
 
-/// Compares a detected bit pattern with an expected pattern
-///
-/// This function calculates the percentage of matching bits between
-/// the detected pattern and the expected pattern.
-///
-/// @param detected: Slice of detected bits
-/// @param pattern: Slice of expected bit pattern
-/// @return: A float between 0 and 1 representing the match percentage
+fn find_sync(samples: &[i16]) -> usize {
+    (0..SAMPLES_PER_BIT as usize)
+        .map(|offset| {
+            let power_diff = (0..16).map(|i| {
+                let start = offset + i * SAMPLES_PER_BIT as usize;
+                let end = start + SAMPLES_PER_BIT as usize;
+                let chunk = &samples[start..end];
+                let power_1 = correlate(chunk, FREQUENCY_1);
+                let power_0 = correlate(chunk, FREQUENCY_0);
+                (power_1 - power_0).abs()
+            }).sum::<f32>();
+            (offset, power_diff)
+        })
+        .max_by(|&(_, a), &(_, b)| a.partial_cmp(&b).unwrap())
+        .map(|(offset, _)| offset)
+        .unwrap_or(0)
+}
+
 fn compare_pattern(detected: &[bool], pattern: &[bool]) -> f32 {
     let matches = detected.iter()
         .zip(pattern.iter())
@@ -56,95 +59,87 @@ fn compare_pattern(detected: &[bool], pattern: &[bool]) -> f32 {
     matches as f32 / pattern.len() as f32
 }
 
-#[derive(Debug, PartialEq)]
-enum DecoderState {
-    SearchingPreamble,
-    DecodingData
-}
-
 pub fn decode_file(input_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     println!("[DECODER] Starting to decode file: {}", input_file);
 
-    // Open the WAV file and read all samples into a vector
     let mut reader = hound::WavReader::open(input_file)?;
     let samples: Vec<i16> = reader.samples().map(|s| s.unwrap()).collect();
     println!("[DECODER] Read {} samples from file.", samples.len());
 
-    let mut decoded_bits = Vec::new();  // Store the final decoded bits
-    let mut current_position = 0;  // Keep track of our position in the samples
-    let mut state = DecoderState::SearchingPreamble;  // Start in the preamble search state
-    let mut bit_buffer = VecDeque::new();  // Sliding window of recent bits
+    let sync_offset = find_sync(&samples);
+    println!("[DECODER] Sync offset: {} samples", sync_offset);
 
-    // Main decoding loop
-    while current_position < samples.len() {
+    let mut decoded_bits = Vec::new();
+    let mut current_position = sync_offset;
+    let mut state = DecoderState::SearchingPreamble;
+    let mut bit_buffer = VecDeque::new();
+    let mut size_buffer = Vec::new();
+    let mut data_size = 0;
 
-        // Detect the current bit if we have enough samples left
-        if current_position + SAMPLES_PER_BIT as usize <= samples.len() {
-            let chunk = &samples[current_position..current_position + SAMPLES_PER_BIT as usize];
-            let bit = detect_bit(chunk);  // Determine if this chunk represents a 0 or 1
-            bit_buffer.push_back(bit);  // Add the detected bit to our sliding window
-            if bit_buffer.len() > 16 {
-                bit_buffer.pop_front();  // Keep the buffer at a maximum of 16 bits
-            }
+    while current_position + SAMPLES_PER_BIT as usize <= samples.len() {
+        let chunk = &samples[current_position..current_position + SAMPLES_PER_BIT as usize];
+        let bit = detect_bit(chunk);
+        bit_buffer.push_back(bit);
+        if bit_buffer.len() > 16 {
+            bit_buffer.pop_front();
         }
 
-        // State machine for decoding
         match state {
             DecoderState::SearchingPreamble => {
-                // Check if the current 16 bits match the preamble pattern
-                if bit_buffer.len() == 16 && compare_pattern(&bit_buffer.make_contiguous(), &PREAMBLE) >= 0.9 {
-                    println!("[DECODER]: Preamble detected");
-                    decoded_bits.extend(&PREAMBLE);  // Add preamble to decoded bits
-                    bit_buffer.clear();  // Clear the buffer to start fresh for data decoding
-                    state = DecoderState::DecodingData;  // Move to data decoding state
+                if bit_buffer.len() == PREAMBLE.len() && compare_pattern(&bit_buffer.make_contiguous(), &PREAMBLE) >= PREAMBLE_MATCH_THRESHOLD {
+                    println!("[DECODER] Preamble detected");
+                    decoded_bits.extend(&PREAMBLE);
+                    bit_buffer.clear();
+                    state = DecoderState::ReadingSize;
+                }
+            },
+            DecoderState::ReadingSize => {
+                size_buffer.push(bit);
+                if size_buffer.len() == SIZE_BITS {
+                    data_size = size_buffer.iter().enumerate().fold(0, |acc, (i, &bit)| acc | ((bit as usize) << (SIZE_BITS - 1 - i)));
+                    println!("[DECODER] Data size detected: {} bits", data_size);
+                    decoded_bits.extend(&size_buffer);
+                    size_buffer.clear();
+                    state = DecoderState::DecodingData;
                 }
             },
             DecoderState::DecodingData => {
-                // Check if we've reached the postamble
-                if bit_buffer.len() == 16 && compare_pattern(&bit_buffer.make_contiguous(), &POSTAMBLE) >= 0.9 {
-                    println!("[DECODER]: Postamble detected, decoding complete");
-                    decoded_bits.extend(&POSTAMBLE);  // Add postamble to decoded bits
-                    break;  // Exit the decoding loop
-                } else if bit_buffer.len() == 16 {
-                    // If we have 16 bits but it's not a postamble, the first bit must be data
-                    decoded_bits.push(bit_buffer[0]);  // Add the first bit in the buffer to decoded data
-                    bit_buffer.pop_front();  // Remove the first bit as we've processed it
+                if decoded_bits.len() - PREAMBLE.len() - SIZE_BITS == data_size {
+                    state = DecoderState::SearchingPostamble;
+                } else {
+                    decoded_bits.push(bit);
+                }
+            },
+            DecoderState::SearchingPostamble => {
+                if bit_buffer.len() == POSTAMBLE.len() && compare_pattern(&bit_buffer.make_contiguous(), &POSTAMBLE) >= PREAMBLE_MATCH_THRESHOLD {
+                    println!("[DECODER] Postamble detected, decoding complete");
+                    decoded_bits.extend(&POSTAMBLE);
+                    break;
                 }
             }
         }
 
-        // Move to the next bit
         current_position += SAMPLES_PER_BIT as usize;
     }
 
-    // If decoded_bits is empty, the file was not encoded with our protocol
     println!("[DECODER] Decoded bits length: {}", decoded_bits.len());
-    if decoded_bits.is_empty() {
-        return Err("File does not contain encoded data".into());
+    if decoded_bits.len() < PREAMBLE.len() + SIZE_BITS + POSTAMBLE.len() {
+        return Err("File does not contain valid encoded data".into());
     }
 
-    // Print the decoded bits for debugging
     print_bits(&decoded_bits);
 
-    // Convert bits to bytes, excluding preamble and postamble
-    let bytes: Vec<u8> = decoded_bits[PREAMBLE.len()..decoded_bits.len() - POSTAMBLE.len()]
+    let data_start = PREAMBLE.len() + SIZE_BITS;
+    let data_end = decoded_bits.len() - POSTAMBLE.len();
+    let bytes: Vec<u8> = decoded_bits[data_start..data_end]
         .chunks(8)
         .map(|chunk| chunk.iter().fold(0u8, |acc, &b| (acc << 1) | b as u8))
         .collect();
     println!("[DECODER] Converted bits to bytes: {:?}", bytes);
 
-    // Convert bytes to a string (which is Base64 encoded)
-    let decoded = String::from_utf8(bytes)?;
-    println!("[DECODER] Converted bytes to Base64 string: {}", decoded);
-
-    // Decode the Base64 string
-    let json_message = general_purpose::STANDARD.decode(decoded)?;
-    println!("[DECODER] Decoded Base64 string to JSON message.");
-
-    // Convert the decoded bytes to a JSON string
-    let json_string = String::from_utf8(json_message)?;
-    println!("[DECODER] JSON message successfully converted to string.");
+    let decoded_string = String::from_utf8(bytes)?;
+    println!("[DECODER] Converted bytes to string: {}", decoded_string);
 
     println!("[DECODER] File decoded successfully");
-    Ok(json_string)
+    Ok(decoded_string)
 }

@@ -13,9 +13,21 @@ pub fn print_bits(bits: &[bool]) {
     }
     println!("\n");
 
+    // Print Data Size (32 bits after preamble)
+    println!("Data Size:");
+    for &bit in &bits[16..48] {
+        print!("{}", if bit { "1" } else { "0" });
+    }
+
+    let data_size = bits[16..48].iter().enumerate().fold(0, |acc, (i, &bit)| {
+        acc | ((bit as usize) << (31 - i))
+    });
+    println!("or : {} bits \n", data_size);
+
+
     // Print Data (in groups of 8 for readability)
     println!("Data:");
-    let data_bits = &bits[16..bits.len() - 16];
+    let data_bits = &bits[48..bits.len() - 16];
     for (i, &bit) in data_bits.iter().enumerate() {
         print!("{}", if bit { "1" } else { "0" });
         if (i + 1) % 8 == 0 { print!(" "); }
@@ -30,22 +42,19 @@ pub fn print_bits(bits: &[bool]) {
     }
     println!("\n");
 
-    // Print total length
-    println!("Total length: {} bits", bits.len());
-
-    // Convert data bits to ASCII (Base64 string)
-    let base64_string: String = data_bits.chunks(8)
-        .map(|chunk| {
-            let byte = chunk.iter().fold(0u8, |acc, &b| (acc << 1) | b as u8);
-            byte as char
-        })
+    // Convert data bits to bytes
+    let data_bytes: Vec<u8> = data_bits.chunks(8)
+        .map(|chunk| chunk.iter().fold(0u8, |acc, &b| (acc << 1) | b as u8))
         .collect();
+
+    // Convert bytes to Base64 string
+    let base64_string = general_purpose::STANDARD.encode(&data_bytes);
 
     println!("\nBase64 Encoded:");
     println!("{}", base64_string);
 
     // Decode Base64 to get original message
-    match general_purpose::STANDARD.decode(base64_string) {
+    match general_purpose::STANDARD.decode(&base64_string) {
         Ok(decoded_bytes) => {
             match String::from_utf8(decoded_bytes) {
                 Ok(original_message) => {

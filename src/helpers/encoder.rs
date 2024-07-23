@@ -8,20 +8,23 @@ use super::debuger::print_bits;
 pub fn encode_message(message: &str, output_file: &str) -> Result<String, Box<dyn std::error::Error>> {
     println!("[ENCODER]: Encoding message");
 
-    // Convert message to bytes
-    let message_bytes = message.as_bytes();
-
-    // Encode to Base64
-    let encoded = general_purpose::STANDARD.encode(message_bytes);
-
     // Convert Base64 string to bits
-    let bits: Vec<bool> = encoded.bytes().flat_map(|byte| {
+    let bits: Vec<bool> = message.bytes().flat_map(|byte| {
         (0..8).rev().map(move |i| (byte & (1 << i)) != 0)
     }).collect();
+
+    // Calculate the size of the data (in bits)
+    let data_size = bits.len();
+
+    // Convert the size to a bit vector
+    let size_bits: Vec<bool> = (0..SIZE_BITS).rev()
+        .map(|i| (data_size & (1 << i)) != 0)
+        .collect();
 
     // Construct the final bit sequence with preamble and postamble
     let mut encoded_bits: Vec<bool> = Vec::new();
     encoded_bits.extend(&PREAMBLE);
+    encoded_bits.extend(&size_bits);
     encoded_bits.extend(&bits);
     encoded_bits.extend(&POSTAMBLE);
 
