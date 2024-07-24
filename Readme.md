@@ -104,7 +104,7 @@ Access the web interface by opening `http://localhost:3030` in your web browser.
   - 1000 Hz represents binary 0
   - 2000 Hz represents binary 1
 - Audio: 44.1 kHz sample rate, 16-bit depth
-- Decoding: Goertzel algorithm for frequency detection
+- Decoding: Correlation-based algorithm for frequency detection
 
 ### How It Works
 
@@ -114,7 +114,7 @@ Access the web interface by opening `http://localhost:3030` in your web browser.
    - These frequencies are combined to create a WAV audio file.
 
 2. Decoding:
-   - The WAV file is analyzed using the Goertzel algorithm.
+   - The WAV file is analyzed using a correlation-based algorithm.
    - The algorithm detects which frequency is present for each time segment.
    - Based on the detected frequencies, the binary data is reconstructed.
    - The binary data is then converted back to text.
