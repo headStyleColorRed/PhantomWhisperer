@@ -2,49 +2,48 @@ use base64::{engine::general_purpose, Engine as _};
 
 // Helper function to print bits with detailed formatting (for debugging)
 #[allow(dead_code)]
-pub fn print_bits(bits: &[bool]) {
+pub fn print_symbols(symbols: &[u8]) {
     println!("\n===========================");
     println!("Encoding Debug Information:\n");
 
     // Print Preamble
     println!("Preamble:");
-    for &bit in &bits[0..16] {
-        print!("{}", if bit { "1" } else { "0" });
+    for &symbol in &symbols[0..8] {
+        print!("{:02b}", symbol);
     }
     println!("\n");
 
-    // Print Data Size (32 bits after preamble)
+    // Print Data Size (16 symbols after preamble, representing 32 bits)
     println!("Data Size:");
-    for &bit in &bits[16..48] {
-        print!("{}", if bit { "1" } else { "0" });
+    for &symbol in &symbols[8..24] {
+        print!("{:02b}", symbol);
     }
 
-    let data_size = bits[16..48].iter().enumerate().fold(0, |acc, (i, &bit)| {
-        acc | ((bit as usize) << (31 - i))
+    let data_size = symbols[8..24].iter().enumerate().fold(0, |acc, (i, &symbol)| {
+        acc | ((symbol as usize) << (2 * (15 - i)))
     });
-    println!("or : {} bits \n", data_size);
+    println!(" or : {} symbols ({} bits)\n", data_size, data_size * 2);
 
-
-    // Print Data (in groups of 8 for readability)
+    // Print Data (in groups of 4 symbols for readability)
     println!("Data:");
-    let data_bits = &bits[48..bits.len() - 16];
-    for (i, &bit) in data_bits.iter().enumerate() {
-        print!("{}", if bit { "1" } else { "0" });
-        if (i + 1) % 8 == 0 { print!(" "); }
-        if (i + 1) % 64 == 0 { println!(); }
+    let data_symbols = &symbols[24..symbols.len() - 8];
+    for (i, &symbol) in data_symbols.iter().enumerate() {
+        print!("{:02b}", symbol);
+        if (i + 1) % 4 == 0 { print!(" "); }
+        if (i + 1) % 32 == 0 { println!(); }
     }
     println!("\n");
 
     // Print Postamble
     println!("Postamble:");
-    for &bit in &bits[bits.len() - 16..] {
-        print!("{}", if bit { "1" } else { "0" });
+    for &symbol in &symbols[symbols.len() - 8..] {
+        print!("{:02b}", symbol);
     }
     println!("\n");
 
-    // Convert data bits to bytes
-    let data_bytes: Vec<u8> = data_bits.chunks(8)
-        .map(|chunk| chunk.iter().fold(0u8, |acc, &b| (acc << 1) | b as u8))
+    // Convert data symbols to bytes
+    let data_bytes: Vec<u8> = data_symbols.chunks(4)
+        .map(|chunk| chunk.iter().fold(0u8, |acc, &sym| (acc << 2) | sym))
         .collect();
 
     // Convert bytes to Base64 string

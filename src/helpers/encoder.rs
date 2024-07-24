@@ -2,46 +2,52 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use super::constants::*;
-use super::debuger::print_bits;
+use super::debuger::print_symbols;
 
 pub fn encode_message(message: &str, output_file: &str) -> Result<String, Box<dyn std::error::Error>> {
-    println!("[ENCODER]: Encoding message");
+    println!("[ENCODER]: Starting to encode message");
 
-    // Convert Base64 string to bits
-    let bits: Vec<bool> = message.bytes().flat_map(|byte| {
-        (0..8).rev().map(move |i| (byte & (1 << i)) != 0)
-    }).collect();
+    // Convert string to bytes
+    let message_bytes = message.as_bytes();
 
-    // Calculate the size of the data (in bits)
-    let data_size = bits.len();
+    // Calculate the size of the data (in 2-bit symbols)
+    let data_size = message_bytes.len() * 4; // Each byte becomes 4 2-bit symbols
 
-    // Convert the size to a bit vector
-    let size_bits: Vec<bool> = (0..SIZE_BITS).rev()
-        .map(|i| (data_size & (1 << i)) != 0)
+    // Convert the size to 2-bit symbols
+    let size_symbols: Vec<u8> = (0..SIZE_BITS/2).rev()
+        .map(|i| ((data_size >> (i * 2)) & 0b11) as u8)
         .collect();
 
-    // Construct the final bit sequence with preamble and postamble
-    let mut encoded_bits: Vec<bool> = Vec::new();
-    encoded_bits.extend(&PREAMBLE);
-    encoded_bits.extend(&size_bits);
-    encoded_bits.extend(&bits);
-    encoded_bits.extend(&POSTAMBLE);
+    println!("[ENCODER]: Data size: {} symbols", data_size);
+
+    // Construct the final symbol sequence
+    let mut encoded_symbols: Vec<u8> = Vec::new();
+    encoded_symbols.extend(&PREAMBLE);
+    encoded_symbols.extend(&size_symbols);
+
+    // Convert message bytes to 2-bit symbols
+    for &byte in message_bytes {
+        encoded_symbols.push((byte >> 6) & 0b11);
+        encoded_symbols.push((byte >> 4) & 0b11);
+        encoded_symbols.push((byte >> 2) & 0b11);
+        encoded_symbols.push(byte & 0b11);
+    }
+
+    encoded_symbols.extend(&POSTAMBLE);
+
+    println!("[ENCODER]: Total encoded symbols: {}", encoded_symbols.len());
 
     // Debug print
-    print_bits(&encoded_bits);
-
-    // Convert bits to bytes for file writing
-    let encoded_bytes: Vec<u8> = encoded_bits.chunks(8)
-        .map(|chunk| chunk.iter().fold(0u8, |acc, &bit| (acc << 1) | bit as u8))
-        .collect();
+    print_symbols(&encoded_symbols);
 
     println!("[ENCODER]: Saving encoded message to file");
-    // Save encoded message to a file
+    // Save encoded symbols directly to the file
     let mut file = File::create(output_file)?;
-    file.write_all(&encoded_bytes)?;
+    file.write_all(&encoded_symbols)?;
 
     let file_path = Path::new(output_file).canonicalize()?
         .to_str().ok_or("[ENCODER]: Invalid file path")?.to_string();
 
+    println!("[ENCODER]: Encoding completed successfully");
     Ok(file_path)
 }

@@ -1,7 +1,10 @@
+
 use super::*;
 use crate::helpers::{encoder, decoder, modulator};
-use helpers::constants::{POSTAMBLE, PREAMBLE};
 use tempfile::NamedTempFile;
+use hound::{self};
+use super::helpers::constants::*;
+pub const SIZE_SYMBOLS: usize = 16;
 
 // H E L P E R    F U N C T I O N S
 //
@@ -75,10 +78,41 @@ fn test_preamble_postamble() {
     encoder::encode_message(input, encoded_file.path().to_str().unwrap()).unwrap();
 
     let encoded_data = std::fs::read(encoded_file.path()).unwrap();
-    let bits: Vec<bool> = encoded_data.iter().flat_map(|&byte| (0..8).rev().map(move |i| (byte & (1 << i)) != 0)).collect();
 
-    assert!(bits.starts_with(&PREAMBLE), "Preamble not found at the start of encoded data");
-    assert!(bits.ends_with(&POSTAMBLE), "Postamble not found at the end of encoded data");
+    // Now each byte in encoded_data directly represents a symbol
+    let symbols: Vec<u8> = encoded_data;
+
+    assert_eq!(&symbols[..PREAMBLE.len()], PREAMBLE, "Preamble not found at the start of encoded data");
+    assert_eq!(&symbols[symbols.len() - POSTAMBLE.len()..], POSTAMBLE, "Postamble not found at the end of encoded data");
+
+    // Additional check to ensure the preamble and postamble are not just a series of zeros
+    assert!(PREAMBLE.iter().any(|&x| x != 0), "Preamble should not be all zeros");
+    assert!(POSTAMBLE.iter().any(|&x| x != 0), "Postamble should not be all zeros");
+
+    // Check that all symbols are valid (0-3)
+    assert!(symbols.iter().all(|&s| s <= 3), "All symbols should be in the range 0-3");
+
+    // Verify the data portion
+    let data_start = PREAMBLE.len() + SIZE_SYMBOLS;
+    let data_end = symbols.len() - POSTAMBLE.len();
+    let data_symbols = &symbols[data_start..data_end];
+
+    // Convert data symbols back to bytes
+    let decoded_bytes: Vec<u8> = data_symbols.chunks(4)
+        .map(|chunk| {
+            chunk.iter().enumerate().fold(0u8, |acc, (i, &sym)| {
+                acc | (sym << (6 - i * 2))
+            })
+        })
+        .collect();
+
+    let decoded_message = String::from_utf8(decoded_bytes).unwrap();
+    assert_eq!(decoded_message, input, "Decoded message does not match input");
+
+    println!("Encoded symbols: {:?}", symbols);
+    println!("Preamble: {:?}", PREAMBLE);
+    println!("Postamble: {:?}", POSTAMBLE);
+    println!("Decoded message: {}", decoded_message);
 }
 
 #[test]
