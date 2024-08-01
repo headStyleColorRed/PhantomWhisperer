@@ -1,31 +1,59 @@
-use tokio::fs::File;
-use tokio::io::AsyncReadExt;
+use crate::helpers::encoder;
 use serde::{Deserialize, Serialize};
-use crate::helpers::errors::CustomError;
-use crate::helpers;
+use warp::reject::Rejection;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 #[derive(Deserialize, Serialize)]
 pub struct RequestData {
-    pub message: String,
+    pub destination: String,
+    pub source: String,
+    pub information: String
 }
 
-pub async fn modulate_text(data: RequestData) -> Result<impl warp::Reply, warp::Rejection> {
+// This method will be called when the client sends a POST request to /encoder
+// The request body should contain a JSON object with the following fields:
+// - destination: the destination callsign
+// - source: the source callsign
+// - information: the message to be transmitted
+// The method will return a JSON object with the encoded packet and its length
+pub async fn create_packet(data: RequestData) -> Result<impl warp::Reply, Rejection> {
+    // Print the request data for debug reasons
+    print_request_data(&data);
+
     // Encode the message
-    let encoded_path = helpers::encoder::encode_message(&data.message, "src/files/encoded_message.txt")
-        .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
+    let encoded_packet: Vec<Vec<u8>> = encoder::encode_message(&data.information, &data.source, &data.destination);
 
-    // Modulate the file
-    let modulated_file = "src/files/modulated_message.wav";
-    helpers::modulator::modulate_file(&encoded_path, modulated_file)
-        .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
+    // Print the encoded packet for debug reasons
+    print_encoded_packet(encoded_packet.clone());
 
-    // Read the modulated file contents
-    let mut file = File::open(modulated_file).await.map_err(|_| warp::reject::not_found())?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).await.map_err(|_| warp::reject::not_found())?;
 
-    // Return the file contents as a response
-    Ok(warp::http::Response::builder()
-        .header("Content-Type", "audio/wav")
-        .body(buffer))
+    // Flatten the Vec<Vec<u8>> into a single Vec<u8> so we can send it as a response
+    let flattened_packet: Vec<u8> = encoded_packet.into_iter().flatten().collect();
+
+    // Here, instead of creating a WAV file, we would interface with the radio
+    // For now, we'll just return the encoded packet as a response
+    Ok(warp::reply::json(&serde_json::json!({
+        "encoded_packet": STANDARD.encode(flattened_packet.clone()),
+        "length": flattened_packet.len(),
+    })))
+}
+
+// Request data debug function
+pub fn print_request_data(data: &RequestData) {
+    println!("");
+    println!("REQUEST DATA:");
+    println!("_______________");
+    println!("Destination: {}", data.destination);
+    println!("Source: {}", data.source);
+    println!("Information: {}", data.information);
+}
+
+// Debug function with nice printing for terminal
+pub fn print_encoded_packet(encoded_packet: Vec<Vec<u8>>) {
+    println!("");
+    println!("RESPONSE DATA:");
+    println!("_______________");
+    for packet in encoded_packet {
+        println!("Packet: {:?}", packet);
+    }
 }

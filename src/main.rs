@@ -6,7 +6,7 @@ mod routes;
 #[cfg(test)]
 mod tests;
 
-use routes::encoder::modulate_text;
+use routes::encoder::create_packet;
 use routes::decoder::decode_wav;
 use helpers::errors::handle_rejection;
 
@@ -24,11 +24,11 @@ async fn main() {
     let static_route = warp::path("static")
         .and(warp::fs::dir(web_dir));
 
-    // Route that will encode a message and return a WAV file
+    // Route that will encode a message and return the packet encoded
     let encode_route = warp::path("encode")
         .and(warp::post())
         .and(warp::body::json())
-        .and_then(modulate_text);
+        .and_then(create_packet);
 
     // Route that will decode a WAV file and return the message
     let decode_route = warp::path("decode")

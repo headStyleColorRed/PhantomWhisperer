@@ -1,53 +1,88 @@
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
-use super::constants::*;
-use super::debuger::print_symbols;
+use crc16::*;
+use crate::helpers::constants::*;
 
-pub fn encode_message(message: &str, output_file: &str) -> Result<String, Box<dyn std::error::Error>> {
-    println!("[ENCODER]: Starting to encode message");
+// AprsPacket struct based on the AX.25 protocol, it consists of the following fields:
+// - Destination address
+// - Source address
+// - Digipeaters: a list of digipeaters that will repeat the packet
+// - Information field
+pub struct AprsPacket {
+    destination: String,
+    source: String,
+    information: String,
+}
 
-    // Convert string to bytes
-    let message_bytes = message.as_bytes();
-
-    // Calculate the size of the data (in 2-bit symbols)
-    let data_size = message_bytes.len() * 4; // Each byte becomes 4 2-bit symbols
-
-    // Convert the size to 2-bit symbols
-    let size_symbols: Vec<u8> = (0..SIZE_BITS/2).rev()
-        .map(|i| ((data_size >> (i * 2)) & 0b11) as u8)
-        .collect();
-
-    println!("[ENCODER]: Data size: {} symbols", data_size);
-
-    // Construct the final symbol sequence
-    let mut encoded_symbols: Vec<u8> = Vec::new();
-    encoded_symbols.extend(&PREAMBLE);
-    encoded_symbols.extend(&size_symbols);
-
-    // Convert message bytes to 2-bit symbols
-    for &byte in message_bytes {
-        encoded_symbols.push((byte >> 6) & 0b11);
-        encoded_symbols.push((byte >> 4) & 0b11);
-        encoded_symbols.push((byte >> 2) & 0b11);
-        encoded_symbols.push(byte & 0b11);
+impl AprsPacket {
+    pub fn new(destination: &str, source: &str, information: &str) -> Self {
+        AprsPacket {
+            destination: destination.to_string(),
+            source: source.to_string(),
+            information: information.to_string(),
+        }
     }
 
-    encoded_symbols.extend(&POSTAMBLE);
+    pub fn encode(&self) -> Vec<u8> {
+        let mut packet = Vec::new();
 
-    println!("[ENCODER]: Total encoded symbols: {}", encoded_symbols.len());
+        // Add addresses
+        packet.extend(encode_address(&self.destination, false));
+        packet.extend(encode_address(&self.source, true));
 
-    // Debug print
-    print_symbols(&encoded_symbols);
+        // Control field and Protocol ID
+        packet.push(0x03); // Control field: UI-frame
+        packet.push(0xf0); // Protocol ID: no layer 3
 
-    println!("[ENCODER]: Saving encoded message to file");
-    // Save encoded symbols directly to the file
-    let mut file = File::create(output_file)?;
-    file.write_all(&encoded_symbols)?;
+        // Information field
+        packet.extend(self.information.as_bytes());
 
-    let file_path = Path::new(output_file).canonicalize()?
-        .to_str().ok_or("[ENCODER]: Invalid file path")?.to_string();
+        // Calculate and append CRC
+        let crc = State::<CCITT_FALSE>::calculate(&packet);
+        packet.extend(&crc.to_le_bytes());
 
-    println!("[ENCODER]: Encoding completed successfully");
-    Ok(file_path)
+        packet
+    }
+}
+
+fn encode_address(address: &str, last: bool) -> Vec<u8> {
+    let mut encoded = Vec::new();
+    let parts: Vec<&str> = address.split('-').collect();
+    let callsign = parts[0].to_uppercase();
+    let ssid = parts.get(1).unwrap_or(&"0").parse::<u8>().unwrap_or(0);
+
+    for (i, byte) in callsign.as_bytes().iter().enumerate() {
+        if i < 6 {
+            encoded.push(byte << 1);
+        }
+    }
+
+    while encoded.len() < 6 {
+        encoded.push(b' ' << 1);
+    }
+
+    let mut ssid_byte = 0b01100000 | (ssid << 1);
+    if last {
+        ssid_byte |= 1;
+    }
+    encoded.push(ssid_byte);
+
+    encoded
+}
+
+pub fn encode_message(source: &str, destination: &str, message: &str) -> Vec<Vec<u8>> {
+    let mut packets = Vec::new();
+    let chunks = message.as_bytes().chunks(MAX_PAYLOAD_SIZE);
+    let total_chunks = chunks.len();
+
+    for (i, chunk) in chunks.enumerate() {
+        let info = if total_chunks > 1 {
+            format!("{{{}:{}}}{}", i + 1, total_chunks, String::from_utf8_lossy(chunk))
+        } else {
+            String::from_utf8_lossy(chunk).into_owned()
+        };
+
+        let packet = AprsPacket::new(destination, source, &info);
+        packets.push(packet.encode());
+    }
+
+    packets
 }
