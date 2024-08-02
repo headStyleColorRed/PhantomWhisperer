@@ -10,35 +10,37 @@
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #f4f4f4;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f4f4f4;
+            background-color: #333;
         }
 
         .container {
-            background-color: white;
+            background-color: #444;
             padding: 20px;
             border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
         }
 
         h1 {
-            color: #2c3e50;
+            color: #ecf0f1;
         }
 
         input[type="text"],
         input[type="file"] {
-            width: 100%;
+            width: 95%;
             padding: 10px;
             margin-bottom: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid #555;
             border-radius: 4px;
+            background-color: #555;
+            color: #f4f4f4;
         }
 
         button {
-            background-color: #3498db;
+            background-color: #2980b9;
             color: white;
             border: none;
             padding: 10px 20px;
@@ -48,7 +50,7 @@
         }
 
         button:hover {
-            background-color: #2980b9;
+            background-color: #3498db;
         }
 
         .error {
@@ -86,10 +88,12 @@
         }
 
         .response-container {
+            max-height: 35vh;
             margin-top: 20px;
             padding: 15px;
-            background-color: #ecf0f1;
+            background-color: #555;
             border-radius: 4px;
+            overflow-y: auto;
         }
 
         .response-title {
@@ -134,7 +138,7 @@
 
         <div v-if="encodedResponse" class="response-container">
             <div class="response-title">Encoded Response:</div>
-            <div class="response-content">{{ encodedResponse }}</div>
+            <audio controls :src="encodedResponse"></audio>
         </div>
 
         <div v-if="decodedText" class="response-container">
@@ -147,7 +151,7 @@
         new Vue({
             el: '#app',
             data: {
-                message: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer a lobortis nibh. Aenean placerat pretium sapien eu pretium. Aenean eget cursus orci. Nam pharetra nisi sapien, ac bibendum felis iaculis quis. Nulla hendrerit sagittis ante sit amet viverra. Duis lorem odio, mattis eget tristique id, facilisis in sem. Suspendisse potenti.  Nunc vel sagittis ipsum. Aliquam tempus vitae elit vel viverra. Phasellus aliquam cursus ante vel sollicitudin. Quisque a risus arcu. Sed a massa id lorem egestas feugiat. Sed tristique rhoncus purus non eleifend. Etiam imperdiet odio leo, a euismod metus vestibulum vitae.  Nulla et rhoncus erat, vel consectetur lacus. Integer dignissim dolor sem, id mollis lorem commodo id. Cras in augue mattis, feugiat nulla et, commodo lorem. Nam ut auctor odio, ac interdum lorem. Pellentesque luctus euismod ex, et maximus ipsum imperdiet at. Sed fringilla venenatis convallis. Suspendisse vulputate urna at leo efficitur molestie pellentesque a est. Sed augue erat, feugiat vel maximus in, vulputate sit amet lectus. Fusce eu vestibulum mauris. Donec sollicitudin vel mi vel volutpat.',
+                message: 'Hola',
                 source: 'ROD92',
                 destination: 'KATS89',
                 encodedResponse: null,
@@ -187,8 +191,8 @@
                             throw new Error(errorData.message || 'Server responded with an error');
                         }
 
-                        const result = await response.json();
-                        this.encodedResponse = JSON.stringify(result, null, 2);
+                        const blob = await response.blob();
+                        this.encodedResponse = URL.createObjectURL(blob);
                     } catch (error) {
                         console.log(error);
                         this.error = "An error occurred: " + error.message;
@@ -241,7 +245,7 @@
                     this.encodedResponse = null;
                     this.error = null;
                     this.isLoading = false;
-                    this.selectedFile = null;
+                    this.encodedPacket = '';
                     this.decodedText = '';
                 }
             }

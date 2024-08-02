@@ -1,66 +1,46 @@
-use serde::Serialize;
-use futures::TryStreamExt;
-use bytes::Buf;
+use crate::helpers::aprs_packet::AprsPacket;
+use crate::helpers::decoder;
 use crate::helpers::errors::CustomError;
-use crate::helpers;
+use bytes::Buf;
+use futures::io::Cursor;
+use futures::TryStreamExt;
+use hound::WavReader;
 use warp::reject::Rejection;
 
-#[derive(Serialize)]
-pub struct DecodedResponse {
-    pub decoded_message: String,
-}
+pub async fn decode_audio(
+    mut form: warp::multipart::FormData,
+) -> Result<impl warp::Reply, Rejection> {
+    // Extract the uploaded file from the form data
+    let part = form
+        .try_next()
+        .await
+        .map_err(|e| warp::reject::custom(CustomError(format!("Form data error: {}", e))))?
+        .ok_or_else(|| warp::reject::custom(CustomError("No file uploaded".to_string())))?;
 
-pub async fn decode_wav(mut form: warp::multipart::FormData) -> Result<impl warp::Reply, Rejection> {
-    let mut wav_data = Vec::new();
-    println!("[DECODER ROUTE] Starting to process form data...");
-
-    while let Some(part) = form.try_next().await.map_err(|e| warp::reject::custom(CustomError(e.to_string())))? {
-        println!("[DECODER ROUTE] Processing part with name: {}", part.name());
-
-        if part.name() == "file" {
-            println!("[DECODER ROUTE] Found file part.");
-            wav_data = part.stream()
-                .try_fold(Vec::new(), |mut acc, chunk| async move {
-                    acc.extend_from_slice(chunk.chunk());
-                    Ok(acc)
-                })
-                .await
-                .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
-            println!("[DECODER ROUTE] WAV data collected, length: {}", wav_data.len());
-            break;
-        }
-    }
-
-    if wav_data.is_empty() {
-        println!("[DECODER ROUTE] No WAV file found in the request.");
-        return Err(warp::reject::custom(CustomError("No WAV file found in the request".to_string())));
-    }
-
-    // Save the WAV data to a temporary file
-    let temp_wav_file = "temp_decoded.wav";
-    println!("[DECODER ROUTE] Saving WAV data to temporary file: {}", temp_wav_file);
-    tokio::fs::write(temp_wav_file, &wav_data).await
-        .map_err(|e| warp::reject::custom(CustomError(e.to_string())))?;
-    println!("[DECODER ROUTE] Temporary file saved.");
-
-    // Decode the file
-    println!("[DECODER ROUTE] Decoding the file...");
-    let result = helpers::decoder::decode_file(temp_wav_file)
-        .map_err(|e| {
-            println!("[DECODER ROUTE] Decoding failed: {:?}", e);
-            warp::reject::custom(CustomError(e.to_string()))
+    let file_bytes: Vec<u8> = part
+        .stream()
+        .try_fold(Vec::new(), |mut acc, chunk| async move {
+            acc.extend_from_slice(chunk.chunk());
+            Ok(acc)
         })
-        .and_then(|decoded_message| {
-            println!("[DECODER ROUTE] Decoding complete.");
-            Ok(warp::reply::json(&DecodedResponse { decoded_message }))
-        });
+        .await
+        .map_err(|e| warp::reject::custom(CustomError(format!("File read error: {}", e))))?;
 
-    // Clean up temporary files
-    if let Err(e) = tokio::fs::remove_file(temp_wav_file).await {
-        println!("[DECODER ROUTE] Failed to remove temporary file: {:?}", e);
-    } else {
-        println!("[DECODER ROUTE] Temporary file removed.");
-    }
+    // Create a cursor from the file bytes
+    let cursor = std::io::Cursor::new(file_bytes);
 
-    result
+    // Create a WavReader from the cursor
+    let mut reader = WavReader::new(cursor)
+        .map_err(|e| warp::reject::custom(CustomError(format!("WAV parsing error: {}", e))))?;
+
+    // Read the samples into a Vec<i16>
+    let samples: Vec<i16> = reader
+        .samples::<i16>()
+        .collect::<Result<Vec<i16>, _>>()
+        .map_err(|e| warp::reject::custom(CustomError(format!("Sample reading error: {}", e))))?;
+
+    let decoded_message = decoder::decode_audio(samples.as_slice())
+        .map_err(|e| warp::reject::custom(CustomError(format!("Decoding error: {}", e))))?;
+
+    Ok(warp::reply::json(&decoded_message))
 }

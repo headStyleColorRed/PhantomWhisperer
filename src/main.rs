@@ -7,7 +7,7 @@ mod routes;
 mod tests;
 
 use routes::encoder::create_packet;
-use routes::decoder::decode_wav;
+use routes::decoder::decode_audio;
 use helpers::errors::handle_rejection;
 
 #[tokio::main]
@@ -34,7 +34,7 @@ async fn main() {
     let decode_route = warp::path("decode")
         .and(warp::post())
         .and(warp::multipart::form().max_length(5_000_000))
-        .and_then(decode_wav)
+        .and_then(decode_audio)
         .recover(handle_rejection);
 
     // Route to confirm the server is up and running
