@@ -1,10 +1,70 @@
-use crc16::*;
+use crc::{Crc, CRC_16_IBM_SDLC};
 use crate::helpers::constants::*;
 use std::f32::consts::PI;
 use crate::helpers::aprs_packet::AprsPacket;
 
+// https://hugosprojects.wordpress.com/2014/03/15/implementing-aprs/
+// | Field Name            | Number of Bytes | Example    |
+// |-----------------------|-----------------|------------|
+// | Flag                  | 1               | 0x7E       |
+// | Dest Address          | 7               | "M6CYT 1"  |
+// | Source Address        | 7               | "M6CYT 7"  |
+// | Digipeater Addresses  | 0-56            | ""         |
+// | Control Field         | 1               | 0x03       |
+// | Protocol ID           | 1               | 0xF0       |
+// | Information Field     | 1-256           | "Hello!"   |
+// | Frame Check Sequence  | 2               | —          |
+// | Flag                  | 1               | 0x7E       |
+// |-----------------------|-----------------|------------|
+
+
+/// Encodes a message into AFSK modulated audio samples
+/// Returns a vector of i16 audio samples representing the encoded message
+pub fn encode_message(source: &str, destination: &str, information: &str) -> Vec<i16> {
+    println!("[ENCODER] --> 2. Encoding message from {} to {}", source, destination);
+    // Prepare the APRS packets
+    let packets = prepare_packets(source, destination, information);
+    let mut audio_samples = Vec::new();
+
+    // Modulate each packet into audio samples
+    for (i, packet) in packets.iter().enumerate() {
+        println!("[ENCODER] --> 8. Modulating packet {} of {}", i + 1, packets.len());
+        audio_samples.extend(afsk_modulate(packet));
+    }
+
+    audio_samples
+}
+
+
+/// Prepares APRS packets from a message, splitting it into chunks if necessary
+/// Returns a vector of encoded APRS packets (each as a vector of bytes)
+pub fn prepare_packets(source: &str, destination: &str, information: &str) -> Vec<Vec<u8>> {
+    println!("[ENCODER] --> 3. Preparing packets for message: {}", information);
+    let mut packets = Vec::new();
+    // Split the message into chunks of MAX_PAYLOAD_SIZE
+    let chunks = information.as_bytes().chunks(MAX_PAYLOAD_SIZE);
+    let total_chunks = chunks.len();
+
+    for (i, chunk) in chunks.enumerate() {
+        println!("[ENCODER] --> 4. Processing chunk {} of {}", i + 1, total_chunks);
+        let info = if total_chunks > 1 {
+            // If multiple chunks, add sequence number
+            format!("{{{}:{}}}{}", i + 1, total_chunks, String::from_utf8_lossy(chunk))
+        } else {
+            String::from_utf8_lossy(chunk).into_owned()
+        };
+
+        // Create and encode an APRS packet for each chunk
+        let packet = AprsPacket::new(source, destination, &info);
+        packets.push(packet.encode());
+    }
+
+    packets
+}
+
 impl AprsPacket {
     pub fn encode(&self) -> Vec<u8> {
+        println!("[ENCODER] --> 5. Encoding APRS packet");
         let mut packet = Vec::new();
 
         // Add addresses
@@ -16,11 +76,15 @@ impl AprsPacket {
         packet.push(0xf0); // Protocol ID: no layer 3
 
         // Information field
-        packet.extend(self.information.as_bytes());
+        let info_field = self.information.as_bytes();
+        packet.extend(info_field);
 
-        // Calculate and append CRC
-        let crc = State::<CCITT_FALSE>::calculate(&packet);
-        packet.extend(&crc.to_le_bytes());
+        // Calculate CRC only on the information field
+        let crc = Crc::<u16>::new(&CRC_16_IBM_SDLC);
+        let calculated_crc = crc.checksum(info_field);
+        packet.extend(&calculated_crc.to_le_bytes());
+        println!(
+            "[ENCODER] --> 6. CRC calculated: {:04X}, appended to packet", calculated_crc);
 
         packet
     }
@@ -29,6 +93,12 @@ impl AprsPacket {
 /// Encodes an APRS address (callsign-SSID) into the AX.25 format
 /// Returns a vector of bytes representing the encoded address
 pub fn encode_address(address: &str, last: bool) -> Vec<u8> {
+    if !last {
+        println!("[ENCODER] --> 6. Encoding Destination: {}", address);
+    } else {
+        println!("[ENCODER] --> 7. Encoding Source: {}", address);
+    }
+
     let mut encoded = Vec::new();
     // Split the address into callsign and SSID parts
     let parts: Vec<&str> = address.split('-').collect();
@@ -60,51 +130,14 @@ pub fn encode_address(address: &str, last: bool) -> Vec<u8> {
     encoded
 }
 
-/// Prepares APRS packets from a message, splitting it into chunks if necessary
-/// Returns a vector of encoded APRS packets (each as a vector of bytes)
-pub fn prepare_packets(source: &str, destination: &str, message: &str) -> Vec<Vec<u8>> {
-    let mut packets = Vec::new();
-    // Split the message into chunks of MAX_PAYLOAD_SIZE
-    let chunks = message.as_bytes().chunks(MAX_PAYLOAD_SIZE);
-    let total_chunks = chunks.len();
-
-    for (i, chunk) in chunks.enumerate() {
-        let info = if total_chunks > 1 {
-            // If multiple chunks, add sequence number
-            format!("{{{}:{}}}{}", i + 1, total_chunks, String::from_utf8_lossy(chunk))
-        } else {
-            String::from_utf8_lossy(chunk).into_owned()
-        };
-
-        // Create and encode an APRS packet for each chunk
-        let packet = AprsPacket::new(destination, source, &info);
-        packets.push(packet.encode());
-    }
-
-    packets
-}
-
-/// Encodes a message into AFSK modulated audio samples
-/// Returns a vector of i16 audio samples representing the encoded message
-pub fn encode_message(source: &str, destination: &str, message: &str) -> Vec<i16> {
-    // Prepare the APRS packets
-    let packets = prepare_packets(source, destination, message);
-    let mut audio_samples = Vec::new();
-
-    // Modulate each packet into audio samples
-    for packet in packets {
-        audio_samples.extend(afsk_modulate(&packet));
-    }
-
-    audio_samples
-}
-
 /// Modulates a byte array into AFSK audio samples
 /// Returns a vector of i16 audio samples representing the modulated data
 fn afsk_modulate(data: &[u8]) -> Vec<i16> {
+    println!("[ENCODER] --> 9. AFSK modulating {} bytes", data.len());
     let samples_per_bit = (SAMPLE_RATE as f32 / BAUD_RATE) as usize;
     let mut audio_samples = Vec::new();
 
+    println!("[ENCODER] --> 10. Generating tones for each bit");
     for &byte in data {
         for bit in (0..8).rev() {
             // Choose frequency based on the bit value using the modulation of Bell 202 tones

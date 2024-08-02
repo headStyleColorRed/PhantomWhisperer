@@ -87,6 +87,14 @@
             background-color: #95a5a6;
         }
 
+        .test-button {
+            background-color: #27ae60;
+        }
+
+        .test-button:hover {
+            background-color: #2ecc71;
+        }
+
         .response-container {
             max-height: 35vh;
             margin-top: 20px;
@@ -119,6 +127,9 @@
             <button @click="changeOption('decode')" :class="['mode-button', { active: mode === 'decode' }]">
                 Decode
             </button>
+            <button @click="testEncodeDecode" class="mode-button test-button">
+                Test
+            </button>
         </div>
 
         <div v-if="mode === 'encode'">
@@ -145,6 +156,11 @@
             <div class="response-title">Decoded text:</div>
             <div class="response-content">{{ decodedText }}</div>
         </div>
+
+        <div v-if="testResult" class="response-container">
+            <div class="response-title">Test Result:</div>
+            <div class="response-content">{{ testResult }}</div>
+        </div>
     </div>
 
     <script>
@@ -159,7 +175,8 @@
                 isLoading: false,
                 mode: 'encode',
                 selectedFile: null,
-                decodedText: ''
+                decodedText: '',
+                testResult: '',
             },
             methods: {
                 async encodeAndModulate() {
@@ -247,7 +264,64 @@
                     this.isLoading = false;
                     this.encodedPacket = '';
                     this.decodedText = '';
-                }
+                },
+                async testEncodeDecode() {
+                    this.error = null;
+                    this.encodedResponse = null;
+                    this.decodedText = '';
+                    this.testResult = '';
+                    this.isLoading = true;
+
+                    const mockData = {
+                        information: "Test message",
+                        source: "TEST1",
+                        destination: "TEST2"
+                    };
+
+                    try {
+                        // Encode
+                        const encodeResponse = await fetch('http://localhost:3030/encode', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(mockData),
+                        });
+
+                        if (!encodeResponse.ok) {
+                            throw new Error('Encode failed');
+                        }
+
+                        const wavBlob = await encodeResponse.blob();
+
+                        // Decode
+                        const formData = new FormData();
+                        formData.append('file', wavBlob, 'test.wav');
+
+                        const decodeResponse = await fetch('http://localhost:3030/decode', {
+                            method: 'POST',
+                            body: formData,
+                        });
+
+                        if (!decodeResponse.ok) {
+                            throw new Error('Decode failed');
+                        }
+
+                        const result = await decodeResponse.json();
+                        this.decodedText = result.decoded_message;
+
+                        // Compare results
+                        if (this.decodedText === mockData.information) {
+                            this.testResult = "Test passed: Encoded and decoded messages match.";
+                        } else {
+                            this.testResult = "Test failed: Encoded and decoded messages do not match.";
+                        }
+                    } catch (error) {
+                        this.error = "An error occurred during the test: " + error.message;
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
             }
         });
     </script>

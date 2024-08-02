@@ -1156,6 +1156,7 @@ dependencies = [
  "crc16",
  "futures",
  "hound",
+ "hyper",
  "num-complex",
  "rand",
  "rodio",

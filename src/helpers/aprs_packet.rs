@@ -8,16 +8,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
 pub struct AprsPacket {
-    pub destination: String,
     pub source: String,
+    pub destination: String,
     pub information: String,
 }
 
 impl AprsPacket {
-    pub fn new(destination: &str, source: &str, information: &str) -> Self {
+    pub fn new(source: &str, destination: &str, information: &str) -> Self {
         AprsPacket {
-            destination: destination.to_string(),
             source: source.to_string(),
+            destination: destination.to_string(),
             information: information.to_string(),
         }
     }
