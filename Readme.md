@@ -1,138 +1,103 @@
-# Phantom Pulse
-Phantom Pulse is a Rust-based web application for encoding text messages into WAV audio files using frequency-shift keying (FSK) and decoding them back to text, enabling data transmission through audio channels.
+# Phantom Pulse: The Whisper in the Noise
 
 <p align="center">
-  <img src="resources/square_wave.jpeg" alt="Phantom Pulse Logo" width="40%" height="auto" style="display: block; margin: auto;">
+<img src="resources/square_wave.jpeg" alt="Phantom Pulse Logo" width="40%" height="auto" style="display: block; margin: auto;">
 </p>
 
-## Features
+## 🌟 What's This Sorcery?
 
-- Encode text messages into WAV audio files
-- Decode WAV audio files back to text messages
-- Web-based interface for easy interaction
-- RESTful API endpoints for encoding and decoding
+Phantom Pulse is a Rust-powered web application that turns your boring old text into secret audio whispers and back again! It's like having a digital secret agent in your browser. Using the arcane arts of frequency-shift keying (FSK), we transform your messages into WAV audio files that sound like robot dolphins having a chat.
 
-## Installation
+## 🎭 Features That'll Blow Your Mind
 
-You can install and run Phantom Pulse either directly on your system or using Docker.
+- 🔊 Turn your texts into mysterious audio files
+- 👂 Eavesdrop on those audio files and reveal their secrets
+- 🌐 Web interface so slick, it makes spies jealous
+- 🚀 API endpoints for when you're feeling extra techy
 
-### Option 1: Direct Installation
+## 🏗️ Building Your Secret Lair
 
-1. Ensure you have Rust and Cargo installed on your system. If not, install them from [https://www.rust-lang.org/](https://www.rust-lang.org/).
+### Option 1: The "I Like to Live Dangerously" Method
 
-2. Clone the repository:
+1. Make sure you've got Rust and Cargo. No Rust? Get it from https://www.rust-lang.org/.
+2. Clone this bad boy:
    ```
-   git clone https://github.com/headstylecolorred/phantom-pulse.git
+   git clone https://github.com/your-repo/phantom-pulse.git
    cd phantom-pulse
    ```
-
-3. Build and run the project:
+3. Fire it up:
    ```
    cargo run
    ```
 
-### Option 2: Docker Installation
+### Option 2: The "I'm Too Cool for Direct Installation" Docker Method
 
-1. Ensure you have Docker and Docker Compose installed on your system. If not, install them from [https://docs.docker.com/get-docker/](https://docs.docker.com/get-docker/).
-
-2. Clone the repository:
+1. Get Docker. No Docker? https://docs.docker.com/get-docker/
+2. Clone, as usual:
    ```
-   git clone https://github.com/headstylecolorred/phantom-pulse.git
+   git clone https://github.com/your-repo/phantom-pulse.git
    cd phantom-pulse
    ```
-
-3. Build and run the Docker container:
+3. Let Docker do its magic:
    ```
-   docker-compose up --build
+   docker build -t phantom-pulse .
+   docker run -p 3030:3030 phantom-pulse
    ```
 
-For both options, the server will start running on `http://localhost:3030`.
+Either way, your secret communication hub will be running at http://localhost:3030. Shhh, don't tell anyone!
 
-## Usage
+## 🕵️ How to Be a Digital Spy
 
-Phantom Pulse provides a web interface and API endpoints for encoding and decoding messages:
-
-### Web Interface
+### Web Interface: For the Visually Inclined
 
 <p align="center">
-  <img src="resources/website.png" alt="Phantom Pulse Logo" width="70%" height="auto" style="display: block; margin: auto;">
+<img src="resources/website.png" alt="Phantom Pulse Web Interface" width="70%" height="auto" style="display: block; margin: auto;">
 </p>
 
-Access the web interface by opening `http://localhost:3030` in your web browser. The interface allows you to:
+1. Point your browser to http://localhost:3030
+2. Type in your super-secret message
+3. Hit that "Encode" button and watch the magic happen
+4. To decode, upload your mysterious WAV file and reveal its secrets
 
-- Enter text messages to encode into WAV files
-- Upload WAV files to decode back into text messages
+### API Endpoints: For the Command Line Ninjas
 
-### API Endpoints
+- Encode your message:
+  ```
+  curl -X POST -H "Content-Type: application/json" -d '{"message":"Your secret here"}' http://localhost:3030/encode
+  ```
+  You'll get back a WAV file that sounds like a dial-up modem having a seizure.
 
-1. Encode a message:
-   ```js
-   POST /encode
-   Content-Type: application/json
+- Decode a WAV file:
+  ```
+  curl -X POST -F "file=@path/to/your/secret.wav" http://localhost:3030/decode
+  ```
+  The server will spill the beans in JSON format.
 
-   {
-     "message": "Your secret message"
-   }
-   ```
-   This returns a WAV file containing the encoded message.
+- Health check (because even spies need to stay healthy):
+  ```
+  curl http://localhost:3030/health
+  ```
+  If it says "Server is up and running", you're golden!
 
-2. Decode a WAV file:
-   ```js
-   POST /decode
-   Content-Type: multipart/form-data
+## 🔬 The Science Behind the Magic
 
-   file: [WAV file to decode]
-   ```
-   This returns a JSON object containing the decoded message:
-   ```json
-   {
-     "decoded_message": "Your secret message"
-   }
-   ```
+- We use Rust, because we're fast and we don't crash (unlike certain other languages we won't mention)
+- Text goes in, binary comes out, then audio frequencies take over
+- We use Binary FSK (Frequency-Shift Keying) because it sounds cooler than saying "beep boop"
+- 1000 Hz = 0, 2000 Hz = 1 (but don't tell anyone, it's a secret)
+- Audio nerds: We're rocking 44.1 kHz sample rate and 16-bit depth
+- To decode, we use a correlation-based algorithm that's basically a very picky ear
 
-3. Health check:
-   ```
-   GET /health
-   ```
-   Returns "Server is up and running" if the server is operational.
+## 🚨 Legal Mumbo Jumbo
 
-## Technical Details
+This software is for educational purposes only. If you use it to plan a heist or overthrow a government, that's on you. We're not responsible for any international incidents, time paradoxes, or alien invasions that may result from using Phantom Pulse.
 
-- Backend: Rust with Warp web framework
-- Encoding: Text to binary, then to audio frequencies
-- Modulation: Binary FSK (Frequency-Shift Keying)
-  - 1000 Hz represents binary 0
-  - 2000 Hz represents binary 1
-- Audio: 44.1 kHz sample rate, 16-bit depth
-- Decoding: Correlation-based algorithm for frequency detection
+## 🤝 Join the Secret Society
 
-### How It Works
+Want to make Phantom Pulse even more phantom-y? Pull requests welcome! Just remember the first rule of Phantom Pulse: You don't talk about Phantom Pulse.
 
-1. Encoding:
-   - The input text is converted to binary.
-   - Each binary digit is represented by a specific frequency (1000 Hz or 2000 Hz).
-   - These frequencies are combined to create a WAV audio file.
+## 📜 License
 
-2. Decoding:
-   - The WAV file is analyzed using a correlation-based algorithm.
-   - The algorithm detects which frequency is present for each time segment.
-   - Based on the detected frequencies, the binary data is reconstructed.
-   - The binary data is then converted back to text.
+MIT, because we're cool like that.
 
-## Project Structure
-
-- `/src`: Contains the Rust source code
-  - `main.rs`: Server setup and route definitions
-  - `/routes`: Contains handler functions for API endpoints
-  - `/helpers`: Utility functions for encoding, decoding, and error handling
-- `/web`: Contains the front-end files (HTML, CSS, JavaScript)
-
-## Legal and Safety
-
-**Important:** This software is designed for educational purposes only. Be aware of the legal implications of transmitting encoded messages, especially over radio frequencies. Always ensure you comply with local laws and regulations.
-
-## Contributing
-
-Contributions to Phantom Pulse are welcome! Please feel free to submit pull requests, create issues or spread the word.
-
-## License
+Now go forth and communicate in secret, you magnificent digital spy, you!
