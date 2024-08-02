@@ -266,20 +266,22 @@
                     this.decodedText = '';
                 },
                 async testEncodeDecode() {
+                    console.log("Starting testEncodeDecode");
                     this.error = null;
                     this.encodedResponse = null;
                     this.decodedText = '';
                     this.testResult = '';
                     this.isLoading = true;
-
                     const mockData = {
                         information: "Test message",
                         source: "TEST1",
                         destination: "TEST2"
                     };
+                    console.log("Mock data:", mockData);
 
                     try {
                         // Encode
+                        console.log("Sending encode request");
                         const encodeResponse = await fetch('http://localhost:3030/encode', {
                             method: 'POST',
                             headers: {
@@ -289,12 +291,16 @@
                         });
 
                         if (!encodeResponse.ok) {
+                            console.error("Encode request failed:", encodeResponse.status, encodeResponse.statusText);
                             throw new Error('Encode failed');
                         }
 
+                        console.log("Encode request successful");
                         const wavBlob = await encodeResponse.blob();
+                        console.log("Received WAV blob, size:", wavBlob.size, "bytes");
 
                         // Decode
+                        console.log("Sending decode request");
                         const formData = new FormData();
                         formData.append('file', wavBlob, 'test.wav');
 
@@ -304,21 +310,35 @@
                         });
 
                         if (!decodeResponse.ok) {
+                            console.error("Decode request failed:", decodeResponse.status, decodeResponse.statusText);
                             throw new Error('Decode failed');
                         }
 
+                        console.log("Decode request successful");
                         const result = await decodeResponse.json();
                         this.decodedText = result.decoded_message;
+                        console.log("Decoded text:", this.decodedText);
 
                         // Compare results
-                        if (this.decodedText === mockData.information) {
+                        if (result.source === mockData.source && result.destination === mockData.destination && result.information === mockData.information) {
+                            console.log("Test passed: Encoded and decoded messages match");
                             this.testResult = "Test passed: Encoded and decoded messages match.";
                         } else {
+                            console.error("Test failed: Encoded and decoded messages do not match");
+                            if (result.source !== mockData.source) {
+                                console.error("Source mismatch:", result.source, "!=", mockData.source);
+                            } else if (result.destination !== mockData.destination) {
+                                console.error("Destination mismatch:", result.destination, "!=", mockData.destination);
+                            } else if (result.information !== mockData.information) {
+                                console.error("Information mismatch:", result.information, "!=", mockData.information);
+                            }
                             this.testResult = "Test failed: Encoded and decoded messages do not match.";
                         }
                     } catch (error) {
+                        console.error("Error during test:", error);
                         this.error = "An error occurred during the test: " + error.message;
                     } finally {
+                        console.log("Test completed");
                         this.isLoading = false;
                     }
                 },
