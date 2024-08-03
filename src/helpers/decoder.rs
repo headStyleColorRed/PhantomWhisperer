@@ -50,44 +50,73 @@ fn parse_aprs_packet(bytes: &[u8]) -> Result<AprsPacket, String> {
         return Err("Packet too short".to_string());
     }
 
-    let destination = decode_address(&bytes[0..7]);
-    let source = decode_address(&bytes[7..14]);
-    println!("[DECODER] --> 7. Decoded addresses: Destination: {}, Source: {}", destination, source);
+    // Find start flag in byte stream
+    let mut packet_byte_position = 0;
 
-    // Find end of address field (marked by LSB set to 1)
-    let mut info_start = 14;
-    while info_start < bytes.len() && (bytes[info_start - 1] & 0x01) == 0 {
-        info_start += 7;
+    // Iterate through the bytes until the flag is found
+    while packet_byte_position < bytes.len() && bytes[packet_byte_position] != FLAG {
+        packet_byte_position += 1;
     }
-    println!("[DECODER] --> 8. Found info_start at index: {}", info_start);
 
-    if info_start + 2 >= bytes.len() {
-        println!("[DECODER] --> 9. No information field");
+    // If no flag is found, return an error
+    if packet_byte_position == bytes.len() {
+        return Err("No start flag found".to_string());
+    } else {
+        println!("[DECODER] --> 7. Found start flag at index: {}", packet_byte_position);
+        packet_byte_position += 1;
+    }
+
+    // Decode addres Destination
+    let destination = decode_address(&bytes[packet_byte_position..packet_byte_position + 7]);
+
+    // Advance packet byte position
+    packet_byte_position += 7;
+
+    let source = decode_address(&bytes[packet_byte_position..packet_byte_position + 7]);
+    println!("[DECODER] --> 8. Decoded addresses: Destination: {}, Source: {}", destination, source);
+
+    // Advance packet byte position
+    packet_byte_position += 7;
+
+    // Iterate through the bytes until the LSB is found
+    while packet_byte_position < bytes.len() && (bytes[packet_byte_position - 1] & 0x01) == 0 {
+        packet_byte_position += 7;
+    }
+    println!("[DECODER] --> 9. Found packet_byte_position at index: {}", packet_byte_position);
+
+    if packet_byte_position + 2 >= bytes.len() {
+        println!("[DECODER] --> 10. No information field");
         return Err("No information field".to_string());
     }
 
     // Skip control and protocol ID fields
-    info_start += 2;
+    packet_byte_position += 2;
 
-    // Extract information field (excluding CRC)
-    let info_end = bytes.len() - 2;
-    let information = String::from_utf8_lossy(&bytes[info_start..info_end]).to_string();
-    println!("[DECODER] --> 9. Extracted information field: {}", information);
+    // Extract information field (excluding CRC and ending flag)
+    let info_end = bytes.len() - 3;
+    let information = String::from_utf8_lossy(&bytes[packet_byte_position..info_end]).to_string();
+    println!("[DECODER] --> 10. Extracted information field: {}", information);
 
     // Verify CRC
     let crc = Crc::<u16>::new(&CRC_16_IBM_SDLC);
-    let crc_range = &bytes[info_start..info_end];
-    println!("[DECODER] --> CRC calculation range: {:02X?}", crc_range);
+    let crc_range = &bytes[packet_byte_position..info_end];
     let calculated_crc = crc.checksum(crc_range);
     let packet_crc = u16::from_le_bytes([bytes[info_end], bytes[info_end + 1]]);
-    println!("[DECODER] --> 10. CRC check: calculated {:04X}, found {:04X}", calculated_crc, packet_crc);
+    println!("[DECODER] --> 11. CRC check: calculated {:04X}, found {:04X}", calculated_crc, packet_crc);
 
     if calculated_crc != packet_crc {
-        println!("[DECODER] --> 11. CRC check failed");
+        println!("[DECODER] --> 12. CRC check failed");
         return Err(format!("CRC mismatch: calculated {:04X}, found {:04X}", calculated_crc, packet_crc));
     }
 
-    println!("[DECODER] --> 11. CRC check passed");
+    println!("[DECODER] --> 12. CRC check passed");
+
+    // Check for ending flag
+    if bytes[info_end + 2] != FLAG {
+        return Err("No ending flag found".to_string());
+    } else {
+        println!("[DECODER] --> 13. Found ending flag");
+    }
 
     Ok(AprsPacket {
         destination,

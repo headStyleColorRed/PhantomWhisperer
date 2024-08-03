@@ -70,6 +70,9 @@ impl AprsPacket {
         println!("[ENCODER] --> 5. Encoding APRS packet");
         let mut packet = Vec::new();
 
+        // Add starting flag which will allow the decoder to find the start of the packet
+        packet.push(FLAG);
+
         // Add addresses
         packet.extend(encode_address(&self.destination, false));
         packet.extend(encode_address(&self.source, true));
@@ -86,8 +89,11 @@ impl AprsPacket {
         let crc = Crc::<u16>::new(&CRC_16_IBM_SDLC);
         let calculated_crc = crc.checksum(info_field);
         packet.extend(&calculated_crc.to_le_bytes());
-        println!(
-            "[ENCODER] --> 6. CRC calculated: {:04X}, appended to packet", calculated_crc);
+
+        // Add ending flag to mark the end of the packet
+        packet.push(FLAG);
+
+        println!("[ENCODER] --> 6. CRC calculated: {:04X}, appended to packet", calculated_crc);
 
         packet
     }

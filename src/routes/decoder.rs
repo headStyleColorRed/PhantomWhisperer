@@ -11,7 +11,7 @@ pub async fn decode_audio(form: warp::multipart::FormData) -> Result<impl warp::
     let decoded_message = decoder::decode_audio(samples.as_slice())
         .map_err(|e| warp::reject::custom(CustomError(format!("Decoding error: {}", e))))?;
 
-    println!("[DECODER] --> 6. Audio decoded successfully");
+    println!("[DECODER] --> 14. Audio decoded successfully");
 
     Ok(warp::reply::json(&decoded_message))
 }
