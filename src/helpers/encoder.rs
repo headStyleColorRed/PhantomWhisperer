@@ -2,6 +2,9 @@ use crc::{Crc, CRC_16_IBM_SDLC};
 use crate::helpers::constants::*;
 use std::f32::consts::PI;
 use crate::helpers::aprs_packet::AprsPacket;
+use std::io::Cursor;
+use hound::{WavWriter, WavSpec};
+use warp::reject::Rejection;
 
 // https://hugosprojects.wordpress.com/2014/03/15/implementing-aprs/
 // | Field Name            | Number of Bytes | Example    |
@@ -160,4 +163,38 @@ fn generate_tone(freq: f32, num_samples: usize) -> Vec<i16> {
         })
         .map(|sample| sample as i16)
         .collect()
+}
+
+
+pub fn create_wav_file(audio_data: Vec<i16>) -> Result<impl warp::Reply, Rejection> {
+    println!("[ENCODER] --> 11. Starting create_wav_file function");
+
+    let spec = WavSpec {
+        channels: 1,
+        sample_rate: SAMPLE_RATE,
+        bits_per_sample: BITS_PER_SAMPLE,
+        sample_format: hound::SampleFormat::Int,
+    };
+    println!("[ENCODER] --> 12. WAV spec created");
+
+    let mut wav_buffer = Vec::new();
+    {
+        let mut writer = WavWriter::new(Cursor::new(&mut wav_buffer), spec).unwrap();
+        println!("[ENCODER] --> 13. WavWriter initialized");
+
+        for &sample in &audio_data {
+            writer.write_sample(sample).unwrap();
+        }
+        println!("[ENCODER] --> 14. Audio data written to WAV buffer");
+
+        writer.finalize().unwrap();
+        println!("[ENCODER] --> 15. WAV file finalized");
+    }
+
+    println!("[ENCODER] --> 16. Returning WAV file data.\n");
+    Ok(warp::reply::with_header(
+        wav_buffer,
+        "Content-Type",
+        "audio/wav",
+    ))
 }
