@@ -17,8 +17,6 @@ Phantom Pulse is a Rust-powered web application that turns your boring old text 
 
 ## 🏗️ Building Your Secret Lair
 
-### Option 1: The "I Like to Live Dangerously" Method
-
 1. Make sure you've got Rust and Cargo. No Rust? Get it from https://www.rust-lang.org/.
 2. Clone this bad boy:
    ```
@@ -30,21 +28,6 @@ Phantom Pulse is a Rust-powered web application that turns your boring old text 
    cargo run
    ```
 
-### Option 2: The "I'm Too Cool for Direct Installation" Docker Method
-
-1. Get Docker. No Docker? https://docs.docker.com/get-docker/
-2. Clone, as usual:
-   ```
-   git clone https://github.com/your-repo/phantom-pulse.git
-   cd phantom-pulse
-   ```
-3. Let Docker do its magic:
-   ```
-   docker build -t phantom-pulse .
-   docker run -p 3030:3030 phantom-pulse
-   ```
-
-Either way, your secret communication hub will be running at http://localhost:3030. Shhh, don't tell anyone!
 
 ## 🕵️ How to Be a Digital Spy
 
