@@ -1,5 +1,5 @@
 use super::constants::*;
-use crate::helpers::aprs_packet::AprsPacket;
+use crate::models::aprs_packet::AprsPacket;
 use crc::{Crc, CRC_16_IBM_SDLC};
 use rustfft::{FftPlanner, num_complex::Complex};
 use bytes::Buf;
@@ -72,20 +72,35 @@ fn parse_aprs_packet(bytes: &[u8]) -> Result<AprsPacket, String> {
     // Advance packet byte position
     packet_byte_position += 7;
 
+    // Decode address Source
     let source = decode_address(&bytes[packet_byte_position..packet_byte_position + 7]);
     println!("[DECODER] --> 8. Decoded addresses: Destination: {}, Source: {}", destination, source);
 
     // Advance packet byte position
     packet_byte_position += 7;
 
+    // Decode Digipeater addresses
+    let mut digipeaters = Vec::new();
+    while packet_byte_position + 7 <= bytes.len() {
+        let address_bytes = &bytes[packet_byte_position..packet_byte_position + 7];
+        let digipeater = decode_address(address_bytes);
+        digipeaters.push(digipeater);
+        packet_byte_position += 7;
+
+        if (address_bytes[6] & 0x01) != 0 {
+            break; // Last bit is 1, indicating this is the last address
+        }
+    }
+    println!("[DECODER] --> 9. Decoded {} digipeater(s): {:?}", digipeaters.len(), digipeaters);
+
     // Iterate through the bytes until the LSB is found
     while packet_byte_position < bytes.len() && (bytes[packet_byte_position - 1] & 0x01) == 0 {
         packet_byte_position += 7;
     }
-    println!("[DECODER] --> 9. Found packet_byte_position at index: {}", packet_byte_position);
+    println!("[DECODER] --> 10. Found packet_byte_position at index: {}", packet_byte_position);
 
     if packet_byte_position + 2 >= bytes.len() {
-        println!("[DECODER] --> 10. No information field");
+        println!("[DECODER] --> 11. No information field");
         return Err("No information field".to_string());
     }
 
@@ -95,33 +110,35 @@ fn parse_aprs_packet(bytes: &[u8]) -> Result<AprsPacket, String> {
     // Extract information field (excluding CRC and ending flag)
     let info_end = bytes.len() - 3;
     let information = String::from_utf8_lossy(&bytes[packet_byte_position..info_end]).to_string();
-    println!("[DECODER] --> 10. Extracted information field: {}", information);
+    println!("[DECODER] --> 11. Extracted information field: {}", information);
 
     // Verify CRC
     let crc = Crc::<u16>::new(&CRC_16_IBM_SDLC);
     let crc_range = &bytes[packet_byte_position..info_end];
     let calculated_crc = crc.checksum(crc_range);
     let packet_crc = u16::from_le_bytes([bytes[info_end], bytes[info_end + 1]]);
-    println!("[DECODER] --> 11. CRC check: calculated {:04X}, found {:04X}", calculated_crc, packet_crc);
+    println!("[DECODER] --> 12. CRC check: calculated {:04X}, found {:04X}", calculated_crc, packet_crc);
 
     if calculated_crc != packet_crc {
-        println!("[DECODER] --> 12. CRC check failed");
+        println!("[DECODER] --> 13. CRC check failed");
         return Err(format!("CRC mismatch: calculated {:04X}, found {:04X}", calculated_crc, packet_crc));
     }
 
-    println!("[DECODER] --> 12. CRC check passed");
+    println!("[DECODER] --> 13. CRC check passed");
 
     // Check for ending flag
     if bytes[info_end + 2] != FLAG {
+        println!("[DECODER] --> 15. No ending flag found");
         return Err("No ending flag found".to_string());
     } else {
-        println!("[DECODER] --> 13. Found ending flag");
+        println!("[DECODER] --> 15. Found ending flag");
     }
 
     Ok(AprsPacket {
         destination,
         source,
-        information,
+        digipeaters,
+        information
     })
 }
 

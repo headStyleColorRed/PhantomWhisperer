@@ -113,6 +113,29 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
+
+        select {
+            width: 98%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background-color: #555;
+            color: #f4f4f4;
+            font-size: 16px;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%23f4f4f4" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 10px top 50%;
+            background-size: 24px 24px;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #2980b9;
+        }
     </style>
 </head>
 
@@ -135,6 +158,12 @@
         <div v-if="mode === 'encode'">
             <input type="text" v-model="source" placeholder="Enter source callsign">
             <input type="text" v-model="destination" placeholder="Enter destination callsign">
+            <select v-model="digipeater">
+                <option value="WIDE0-0">DIRECT</option>
+                <option value="WIDE1-1">SHORT RANGE</option>
+                <option value="WIDE2-2">MEDIUM RANGE</option>
+                <option value="WIDE3-3">LONG RANGE</option>
+            </select>
             <input type="text" v-model="message" placeholder="Enter your message">
             <button @click="encodeAndModulate" :disabled="isLoading">Encode and Modulate</button>
         </div>
@@ -177,10 +206,11 @@
                 selectedFile: null,
                 decodedText: '',
                 testResult: '',
+                digipeater: 'WIDE0-0',
             },
             methods: {
                 async encodeAndModulate() {
-                    if (!this.message || !this.source || !this.destination) {
+                    if (!this.message || !this.source || !this.destination || !this.digipeater) {
                         this.error = "Please fill in all fields";
                         return;
                     }
@@ -191,7 +221,8 @@
                     let body = {
                         information: this.message,
                         source: this.source,
-                        destination: this.destination
+                        destination: this.destination,
+                        digipeaters: [this.digipeater]
                     };
 
                     try {
@@ -244,7 +275,13 @@
                         }
 
                         const result = await response.json();
-                        this.decodedText = result.decoded_message;
+                        console.log(result);
+
+                        // Display the decoded text properly
+                        this.decodedText = `Source: ${result.source}\n` +
+                                           `Destination: ${result.destination}\n` +
+                                           `Digipeaters: ${result.digipeaters.join(', ')}\n` +
+                                           `Information: ${result.information}`;
                     } catch (error) {
                         this.error = "An error occurred: " + error.message;
                     } finally {
@@ -264,6 +301,7 @@
                     this.isLoading = false;
                     this.encodedPacket = '';
                     this.decodedText = '';
+                    this.digipeater = 'WIDE0-0';
                 },
                 async testEncodeDecode() {
                     console.log("Starting testEncodeDecode");
@@ -275,7 +313,8 @@
                     const mockData = {
                         information: "Test message",
                         source: "TEST1",
-                        destination: "TEST2"
+                        destination: "TEST2",
+                        digipeaters: [this.digipeater]  // Use the current digipeater value
                     };
                     console.log("Mock data:", mockData);
 
@@ -320,7 +359,10 @@
                         console.log("Decoded text:", this.decodedText);
 
                         // Compare results
-                        if (result.source === mockData.source && result.destination === mockData.destination && result.information === mockData.information) {
+                        if (result.source === mockData.source &&
+                            result.destination === mockData.destination &&
+                            result.information === mockData.information &&
+                            result.digipeaters[0] === mockData.digipeaters[0]) {  // Check digipeater
                             console.log("Test passed: Encoded and decoded messages match");
                             this.testResult = "Test passed: Encoded and decoded messages match.";
                         } else {
@@ -331,6 +373,8 @@
                                 console.error("Destination mismatch:", result.destination, "!=", mockData.destination);
                             } else if (result.information !== mockData.information) {
                                 console.error("Information mismatch:", result.information, "!=", mockData.information);
+                            } else if (result.digipeaters[0] !== mockData.digipeaters[0]) {
+                                console.error("Digipeater mismatch:", result.digipeaters[0], "!=", mockData.digipeaters[0]);
                             }
                             this.testResult = "Test failed: Encoded and decoded messages do not match.";
                         }

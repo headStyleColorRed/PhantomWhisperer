@@ -1,7 +1,7 @@
 use crc::{Crc, CRC_16_IBM_SDLC};
 use crate::helpers::constants::*;
 use std::f32::consts::PI;
-use crate::helpers::aprs_packet::AprsPacket;
+use crate::models::aprs_packet::AprsPacket;
 use std::io::Cursor;
 use hound::{WavWriter, WavSpec};
 use warp::reject::Rejection;
@@ -23,10 +23,10 @@ use warp::reject::Rejection;
 
 /// Encodes a message into AFSK modulated audio samples
 /// Returns a vector of i16 audio samples representing the encoded message
-pub fn encode_message(source: &str, destination: &str, information: &str) -> Vec<i16> {
+pub fn encode_message(source: &str, destination: &str, digipeaters: &Vec<String>, information: &str) -> Vec<i16> {
     println!("[ENCODER] --> 2. Encoding message from {} to {}", source, destination);
     // Prepare the APRS packets
-    let packets = prepare_packets(source, destination, information);
+    let packets = prepare_packets(source, destination, digipeaters, information);
     let mut audio_samples = Vec::new();
 
     // Modulate each packet into audio samples
@@ -41,7 +41,7 @@ pub fn encode_message(source: &str, destination: &str, information: &str) -> Vec
 
 /// Prepares APRS packets from a message, splitting it into chunks if necessary
 /// Returns a vector of encoded APRS packets (each as a vector of bytes)
-pub fn prepare_packets(source: &str, destination: &str, information: &str) -> Vec<Vec<u8>> {
+pub fn prepare_packets(source: &str, destination: &str, digipeaters: &Vec<String>, information: &str) -> Vec<Vec<u8>> {
     println!("[ENCODER] --> 3. Preparing packets for message: {}", information);
     let mut packets = Vec::new();
     // Split the message into chunks of MAX_PAYLOAD_SIZE
@@ -50,7 +50,7 @@ pub fn prepare_packets(source: &str, destination: &str, information: &str) -> Ve
 
     for (i, chunk) in chunks.enumerate() {
         println!("[ENCODER] --> 4. Processing chunk {} of {}", i + 1, total_chunks);
-        let info = if total_chunks > 1 {
+        if total_chunks > 1 {
             // If multiple chunks, add sequence number
             format!("{{{}:{}}}{}", i + 1, total_chunks, String::from_utf8_lossy(chunk))
         } else {
@@ -58,7 +58,7 @@ pub fn prepare_packets(source: &str, destination: &str, information: &str) -> Ve
         };
 
         // Create and encode an APRS packet for each chunk
-        let packet = AprsPacket::new(source, destination, &info);
+        let packet = AprsPacket::new(source, destination, digipeaters, information);
         packets.push(packet.encode());
     }
 
@@ -76,6 +76,17 @@ impl AprsPacket {
         // Add addresses
         packet.extend(encode_address(&self.destination, false));
         packet.extend(encode_address(&self.source, true));
+
+        println!("[ENCODER] --> 6. Encoding Destination: {}", self.destination);
+        println!("[ENCODER] --> 7. Encoding Source: {}", self.source);
+
+
+        // Add Digipeater addresses
+        for (i, digipeater) in self.digipeaters.iter().enumerate() {
+            println!("[ENCODER] --> 8. Encoding Digipeater: {}", digipeater);
+            let is_last = i == self.digipeaters.len() - 1;
+            packet.extend(encode_address(digipeater, is_last));
+        }
 
         // Control field and Protocol ID
         packet.push(0x03); // Control field: UI-frame
@@ -102,12 +113,6 @@ impl AprsPacket {
 /// Encodes an APRS address (callsign-SSID) into the AX.25 format
 /// Returns a vector of bytes representing the encoded address
 pub fn encode_address(address: &str, last: bool) -> Vec<u8> {
-    if !last {
-        println!("[ENCODER] --> 6. Encoding Destination: {}", address);
-    } else {
-        println!("[ENCODER] --> 7. Encoding Source: {}", address);
-    }
-
     let mut encoded = Vec::new();
     // Split the address into callsign and SSID parts
     let parts: Vec<&str> = address.split('-').collect();

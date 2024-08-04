@@ -13,5 +13,12 @@ pub async fn decode_audio(form: warp::multipart::FormData) -> Result<impl warp::
 
     println!("[DECODER] --> 14. Audio decoded successfully");
 
+    println!("---------------------------------------");
+    println!(" Source: {}", decoded_message.source);
+    println!(" Destination: {}", decoded_message.destination);
+    println!(" Digipeaters: {:?}", decoded_message.digipeaters);
+    println!(" Information: {}", decoded_message.information);
+    println!("---------------------------------------");
+
     Ok(warp::reply::json(&decoded_message))
 }

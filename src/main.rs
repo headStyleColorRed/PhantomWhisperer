@@ -2,6 +2,7 @@ use warp::Filter;
 use std::path::Path;
 mod helpers;
 mod routes;
+mod models;
 
 #[cfg(test)]
 mod tests;
