@@ -159,7 +159,7 @@
             <input type="text" v-model="source" placeholder="Enter source callsign">
             <input type="text" v-model="destination" placeholder="Enter destination callsign">
             <select v-model="digipeater">
-                <option value="WIDE0-0">DIRECT</option>
+                <option value="NONE">DIRECT</option>
                 <option value="WIDE1-1">SHORT RANGE</option>
                 <option value="WIDE2-2">MEDIUM RANGE</option>
                 <option value="WIDE3-3">LONG RANGE</option>
@@ -206,7 +206,7 @@
                 selectedFile: null,
                 decodedText: '',
                 testResult: '',
-                digipeater: 'WIDE0-0',
+                digipeater: 'NONE',
             },
             methods: {
                 async encodeAndModulate() {
@@ -301,7 +301,7 @@
                     this.isLoading = false;
                     this.encodedPacket = '';
                     this.decodedText = '';
-                    this.digipeater = 'WIDE0-0';
+                    this.digipeater = 'NONE';
                 },
                 async testEncodeDecode() {
                     console.log("Starting testEncodeDecode");
@@ -357,6 +357,12 @@
                         const result = await decodeResponse.json();
                         this.decodedText = result.decoded_message;
                         console.log("Decoded text:", this.decodedText);
+
+                        // Console log results
+                        console.log("Source:", result.source);
+                        console.log("Destination:", result.destination);
+                        console.log("Digipeaters:", result.digipeaters);
+                        console.log("Information:", result.information);
 
                         // Compare results
                         if (result.source === mockData.source &&
