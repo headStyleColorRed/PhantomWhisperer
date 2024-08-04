@@ -136,6 +136,22 @@
             outline: none;
             border-color: #2980b9;
         }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+
+        th, td {
+            border: 1px solid #666;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #555;
+        }
     </style>
 </head>
 
@@ -188,7 +204,7 @@
 
         <div v-if="testResult" class="response-container">
             <div class="response-title">Test Result:</div>
-            <div class="response-content">{{ testResult }}</div>
+            <div class="response-content" v-html="testResult"></div>
         </div>
     </div>
 
@@ -358,32 +374,37 @@
                         this.decodedText = result.decoded_message;
                         console.log("Decoded text:", this.decodedText);
 
-                        // Console log results
-                        console.log("Source:", result.source);
-                        console.log("Destination:", result.destination);
-                        console.log("Digipeaters:", result.digipeaters);
-                        console.log("Information:", result.information);
-
                         // Compare results
-                        if (result.source === mockData.source &&
-                            result.destination === mockData.destination &&
-                            result.information === mockData.information &&
-                            result.digipeaters[0] === mockData.digipeaters[0]) {  // Check digipeater
-                            console.log("Test passed: Encoded and decoded messages match");
-                            this.testResult = "Test passed: Encoded and decoded messages match.";
-                        } else {
-                            console.error("Test failed: Encoded and decoded messages do not match");
-                            if (result.source !== mockData.source) {
-                                console.error("Source mismatch:", result.source, "!=", mockData.source);
-                            } else if (result.destination !== mockData.destination) {
-                                console.error("Destination mismatch:", result.destination, "!=", mockData.destination);
-                            } else if (result.information !== mockData.information) {
-                                console.error("Information mismatch:", result.information, "!=", mockData.information);
-                            } else if (result.digipeaters[0] !== mockData.digipeaters[0]) {
-                                console.error("Digipeater mismatch:", result.digipeaters[0], "!=", mockData.digipeaters[0]);
-                            }
-                            this.testResult = "Test failed: Encoded and decoded messages do not match.";
+                        const compareResults = [
+                            { label: 'Source', original: mockData.source, received: result.source },
+                            { label: 'Destination', original: mockData.destination, received: result.destination },
+                            { label: 'Information', original: mockData.information, received: result.information },
+                            { label: 'Digipeater', original: mockData.digipeaters[0], received: result.digipeaters[0] }
+                        ];
+
+                        let allMatch = true;
+                        let resultHtml = '<h3>Test Results:</h3><table><tr><th>Field</th><th>Original</th><th>Received</th></tr>';
+
+                        for (const item of compareResults) {
+                            const match = item.original === item.received;
+                            allMatch = allMatch && match;
+                            const color = match ? 'green' : 'red';
+                            resultHtml += `<tr>
+                                <td>${item.label}</td>
+                                <td>${item.original}</td>
+                                <td style="color: ${color};">${item.received}</td>
+                            </tr>`;
                         }
+
+                        resultHtml += '</table>';
+
+                        if (allMatch) {
+                            resultHtml += '<p style="color: green;">Test passed: Encoded and decoded messages match.</p>';
+                        } else {
+                            resultHtml += '<p style="color: red;">Test failed: Encoded and decoded messages do not match.</p>';
+                        }
+
+                        this.testResult = resultHtml;
                     } catch (error) {
                         console.error("Error during test:", error);
                         this.error = "An error occurred during the test: " + error.message;
